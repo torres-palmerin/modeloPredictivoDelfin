@@ -4,12 +4,15 @@ Homogeneiza tipos, ordena cronológicamente y realiza imputación inteligente
 de promedios nulos antes de pasar los datos al motor del autómata.
 
 Diseñado para ser agnóstico a variaciones de nombres de columnas
-entre múltiples版本es del dataset institucional.
+entre múltiples versiones del dataset institucional.
+
+Compatible con ejecución local (rutas de archivo) y en la nube (BytesIO).
 """
+import io
 import logging
 import os
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Union
 
 import numpy as np
 import pandas as pd
@@ -19,8 +22,6 @@ logger = logging.getLogger(__name__)
 # ============================================================
 # MAPEO FLEXIBLE DE COLUMNAS
 # ============================================================
-# Cada columna lógica acepta múltiples nombres candidatos (en orden de prioridad).
-# El primer candidato encontrado en el Excel se utiliza.
 CANDIDATOS_COLUMNAS: Dict[str, List[str]] = {
     'ID': ['ID', 'id', 'Id', 'ID_ESTUDIANTE', 'MATRICULA'],
     'PERIODO': ['PERIODO', 'periodo', 'Periodo', 'SEMESTRE', 'ANIO_PERIODO'],
@@ -37,24 +38,11 @@ CANDIDATOS_COLUMNAS: Dict[str, List[str]] = {
     ],
 }
 
-# Columnas verdaderamente obligatorias (sin estas no se puede continuar)
 COLUMNAS_OBLIGATORIAS = frozenset({'ID', 'PERIODO', 'PROGRAMA'})
-
-# Columnas deseadas que pueden faltar con fallback
-COLUMNAS_OPCIONALES_CON_FALLBACK = {'PROMEDIO', 'PROMEDIO_ACUMULADO', 'ESTADO'}
 
 
 def _resolver_nombre_columna(df: pd.DataFrame, nombre_logico: str) -> Optional[str]:
-    """
-    Busca la primera columna candidata que exista en el DataFrame.
-
-    Args:
-        df: DataFrame fuente.
-        nombre_logico: Nombre lógico deseado (ej. 'PROMEDIO').
-
-    Returns:
-        Nombre real de la columna encontrada, o None si ninguna existe.
-    """
+    """Busca la primera columna candidata que exista en el DataFrame."""
     candidatos = CANDIDATOS_COLUMNAS.get(nombre_logico, [])
     for candidato in candidatos:
         if candidato in df.columns:
@@ -63,13 +51,7 @@ def _resolver_nombre_columna(df: pd.DataFrame, nombre_logico: str) -> Optional[s
 
 
 def _construir_mapeo(df: pd.DataFrame) -> Dict[str, str]:
-    """
-    Construye el diccionario de mapeo {nombre_real -> nombre_interno}
-    resolviendo cada columna lógica contra las columnas disponibles.
-
-    Returns:
-        Diccionario de mapeo para rename().
-    """
+    """Construye el diccionario de mapeo {nombre_real -> nombre_interno}."""
     mapeo: Dict[str, str] = {}
     nombres_internos = {
         'ID': 'ID',
@@ -86,7 +68,7 @@ def _construir_mapeo(df: pd.DataFrame) -> Dict[str, str]:
             mapeo[real] = nombre_interno
             if real != nombre_interno:
                 logger.info(
-                    "  Columna '%s' mapeada como '%s' → '%s'",
+                    "  Columna '%s' mapeada como '%s' -> '%s'",
                     nombre_logico, real, nombre_interno,
                 )
             else:
@@ -100,14 +82,38 @@ def _construir_mapeo(df: pd.DataFrame) -> Dict[str, str]:
     return mapeo
 
 
-def _validar_archivo(file_path: str) -> None:
-    """Valida que el archivo exista y no esté vacío."""
-    ruta = Path(file_path)
+def _es_streams_bytes(source: Union[str, Path, io.BytesIO]) -> bool:
+    """Determina si la fuente es un objeto de flujo de bytes (BytesIO)."""
+    return isinstance(source, io.BytesIO)
 
-    if not ruta.exists():
-        raise FileNotFoundError(f"El archivo no existe: {ruta.resolve()}")
-    if ruta.stat().st_size == 0:
-        raise ValueError(f"El archivo está vacío: {ruta.resolve()}")
+
+def _validar_fuente(source: Union[str, Path, io.BytesIO]) -> None:
+    """
+    Valida que la fuente de datos sea legible y no esté vacía.
+
+    Acepta rutas de archivo (str/Path) u objetos BytesIO.
+    """
+    if _es_streams_bytes(source):
+        posicion_actual = source.tell()
+        source.seek(0, io.SEEK_END)
+        tamaño = source.tell()
+        source.seek(posicion_actual)
+        if tamaño == 0:
+            raise ValueError("El flujo de bytes está vacío (0 bytes).")
+        logger.info("Fuente tipo BytesIO validada — Tamaño: %d bytes", tamaño)
+    else:
+        ruta = Path(source)
+        if not ruta.exists():
+            raise FileNotFoundError(f"El archivo no existe: {ruta.resolve()}")
+        if ruta.stat().st_size == 0:
+            raise ValueError(f"El archivo está vacío: {ruta.resolve()}")
+
+
+def _obtener_nombre_archivo(source: Union[str, Path, io.BytesIO]) -> str:
+    """Extrae un nombre legible de la fuente de datos."""
+    if _es_streams_bytes(source):
+        return "stream_bytesio"
+    return Path(source).name
 
 
 def _validar_columnas_minimas(
@@ -155,7 +161,6 @@ def _aplicar_fallback_ppp(df: pd.DataFrame) -> pd.DataFrame:
     """
     Si PPP no está disponible en el dataset, genera una versión
     a partir de PPA como proxy razonable del promedio del periodo.
-    Registra un warning claro para trazabilidad.
     """
     if 'PPP' not in df.columns:
         if 'PPA' in df.columns:
@@ -174,45 +179,46 @@ def _aplicar_fallback_ppp(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def clean_academic_data(file_path: str) -> pd.DataFrame:
+def clean_academic_data(
+    file_path: Union[str, Path, io.BytesIO],
+) -> pd.DataFrame:
     """
     Fase 1: Pipeline de limpieza e ingeniería de datos.
 
-    Lee el archivo Excel crudo, valida su integridad, homogeneiza tipos,
-    ordena cronológicamente e imputa promedios nulos con lógica académica.
+    Lee un archivo Excel (desde ruta local o flujo de bytes en memoria),
+    valida su integridad, homogeneiza tipos, ordena cronológicamente
+    e imputa promedios nulos con lógica académica.
 
-    Compatible con múltiples formatos de dataset institucional:
-    - Datasets con columna PROMEDIO (PPP) → la utiliza directamente.
-    - Datasets sin PROMEDIO → usa PPA como proxy con warning.
-    - Nombres de columna variables → resolución por candidatos.
+    Compatible con:
+    - Ejecución local: file_path es un str o Path con la ruta al .xlsx.
+    - AWS Lambda: file_path es un io.BytesIO con el contenido del archivo.
 
     Args:
-        file_path: Ruta al archivo Excel con los datos crudos.
+        file_path: Ruta al archivo Excel o objeto BytesIO con el contenido.
 
     Returns:
         DataFrame limpio y ordenado listo para el motor del autómata.
 
     Raises:
-        FileNotFoundError: Si el archivo no existe.
-        ValueError: Si el archivo está vacío o falta alguna columna obligatoria.
+        FileNotFoundError: Si la ruta local no existe.
+        ValueError: Si la fuente está vacía o falta alguna columna obligatoria.
     """
-    logger.info("Fase 1 — Leyendo archivo crudo: %s", file_path)
+    nombre_archivo = _obtener_nombre_archivo(file_path)
+    logger.info("Fase 1 — Leyendo archivo crudo: %s", nombre_archivo)
 
-    _validar_archivo(file_path)
+    _validar_fuente(file_path)
 
     df = pd.read_excel(file_path)
     logger.info("Registros originales leídos: %d", len(df))
     logger.info("Columnas detectadas: %s", list(df.columns))
 
-    # 1. Validar columnas mínimas (solo ID, PERIODO, PROGRAMA)
-    nombre_archivo = Path(file_path).name
+    # 1. Validar columnas mínimas
     _validar_columnas_minimas(df, COLUMNAS_OBLIGATORIAS, nombre_archivo)
 
     # 2. Resolver mapeo flexible de columnas
     logger.info("Resolviendo mapeo de columnas...")
     mapeo = _construir_mapeo(df)
 
-    # Seleccionar solo las columnas resueltas y renombrar
     columnas_reales = list(mapeo.keys())
     df = df[columnas_reales].rename(columns=mapeo)
 
