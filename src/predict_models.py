@@ -4,8 +4,10 @@ Prepara el conjunto de datos para machine learning y entrena un clasificador
 Random Forest para predecir el siguiente estado académico del estudiante.
 """
 import logging
-from typing import Any, Tuple
+from dataclasses import dataclass, field
+from typing import Any, List, Tuple
 
+import numpy as np
 import pandas as pd
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import accuracy_score, classification_report
@@ -15,6 +17,22 @@ logger = logging.getLogger(__name__)
 
 # Columnas utilizadas como features para el modelo
 FEATURES = ['PPP', 'PPA', 'ESTADO_ACTUAL_ENCODED', 'PROGRAMA_ENCODED']
+
+
+@dataclass
+class ResultadoModelo:
+    """
+    Contenedor de resultados del pipeline de modelado predictivo.
+    Centraliza el modelo entrenado, las métricas de evaluación y los
+    artefactos necesarios para generación de gráficos.
+    """
+    modelo: RandomForestClassifier
+    y_test: pd.Series
+    y_pred: np.ndarray
+    feature_names: List[str]
+    importancias: dict = field(default_factory=dict)
+    accuracy: float = 0.0
+    reporte: str = ''
 
 
 def prepare_ml_dataset(df: pd.DataFrame) -> Tuple[pd.DataFrame, pd.Series, Any]:
@@ -81,7 +99,7 @@ def train_and_evaluate_model(
     test_size: float = 0.2,
     n_estimators: int = 100,
     max_depth: int = 10,
-) -> RandomForestClassifier:
+) -> ResultadoModelo:
     """
     Fase 4: Entrenamiento y evaluación del modelo predictivo.
 
@@ -97,7 +115,7 @@ def train_and_evaluate_model(
         max_depth: Profundidad máxima de cada árbol (default: 10).
 
     Returns:
-        Modelo RandomForestClassifier entrenado.
+        ResultadoModelo con el modelo, predicciones, importancias y métricas.
     """
     logger.info("Fase 4 — Dividiendo datos (entrenamiento: %.0f%%, prueba: %.0f%%)...",
                 (1 - test_size) * 100, test_size * 100)
@@ -129,10 +147,19 @@ def train_and_evaluate_model(
     logger.info("=== REPORTE DE CLASIFICACIÓN ===\n%s", reporte)
     logger.info("Accuracy General: %.4f", accuracy)
 
-    # Importancia de features
-    importancias = modelo.feature_importances_
-    for nombre, importancia in zip(X.columns, importancias):
+    # Importancia de features como diccionario limpio
+    importancias = dict(zip(X.columns, modelo.feature_importances_))
+    for nombre, importancia in importancias.items():
         logger.info("  Importancia [%s]: %.4f", nombre, importancia)
 
     logger.info("Fase 4 completada — Modelo entrenado exitosamente.")
-    return modelo
+
+    return ResultadoModelo(
+        modelo=modelo,
+        y_test=y_test,
+        y_pred=y_pred,
+        feature_names=list(X.columns),
+        importancias=importancias,
+        accuracy=accuracy,
+        reporte=reporte,
+    )

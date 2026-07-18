@@ -17,6 +17,7 @@ from pathlib import Path
 # ============================================================
 RUTA_DATOS_CRUDOS = "data/12_only_undergraduate_with_automaton.xlsx"
 RUTA_CHECKPOINT = "data/checkpoint_dataset_procesado.xlsx"
+RUTA_FIGURAS = "reports/figures"
 
 # Umbrales académicos configurables
 PPP_THRESHOLD = 3.2
@@ -59,6 +60,7 @@ def main() -> None:
         from src.automaton_motor import AcademicAutomaton
         from src.markov_analysis import compute_markov_transition_matrix
         from src.predict_models import prepare_ml_dataset, train_and_evaluate_model
+        from src.visualizer import plot_feature_importances, plot_confusion_matrix
 
         # =======================================================
         # FASE 1: Limpieza de datos
@@ -114,11 +116,30 @@ def main() -> None:
         logger.info("-" * 40)
         logger.info("FASE 4: Modelo predictivo Random Forest")
         logger.info("-" * 40)
-        _modelo_entrenado = train_and_evaluate_model(
+        resultado = train_and_evaluate_model(
             X, y, clases,
             test_size=TEST_SIZE,
             n_estimators=N_ESTIMATORS,
             max_depth=MAX_DEPTH,
+        )
+
+        # =======================================================
+        # FASE 5: Generación de gráficos científicos
+        # =======================================================
+        logger.info("-" * 40)
+        logger.info("FASE 5: Generación de visualizaciones")
+        logger.info("-" * 40)
+        Path(RUTA_FIGURAS).mkdir(parents=True, exist_ok=True)
+
+        plot_feature_importances(
+            importancias=resultado.importancias,
+            output_dir=RUTA_FIGURAS,
+        )
+        plot_confusion_matrix(
+            y_true=resultado.y_test,
+            y_pred=resultado.y_pred,
+            class_names=list(clases),
+            output_dir=RUTA_FIGURAS,
         )
 
         # =======================================================
@@ -131,6 +152,8 @@ def main() -> None:
         logger.info("  Features ML: %d", X.shape[1])
         logger.info("  Muestras ML: %d", X.shape[0])
         logger.info("  Clases target: %d", y.nunique())
+        logger.info("  Accuracy: %.4f", resultado.accuracy)
+        logger.info("  Figuras generadas en: %s", RUTA_FIGURAS)
         logger.info("=" * 60)
 
     except FileNotFoundError as e:
