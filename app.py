@@ -17,7 +17,8 @@ import sys
 try:
     import boto3
 except ModuleNotFoundError:
-    subprocess.check_call([sys.executable, "-m", "pip", "install", "boto3"])
+    # Agregamos el flag '--user' para evitar el error de 'Permission denied'
+    subprocess.check_call([sys.executable, "-m", "pip", "install", "--user", "boto3"])
     import boto3
 
 import io
