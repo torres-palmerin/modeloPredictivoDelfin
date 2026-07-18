@@ -63,3 +63,10 @@ htmlcov/
 
 # ---- Archivos del sistema ----
 desktop.ini
+
+# ---- Despliegue Lambda ----
+deployment_package.zip
+*.zip
+
+# ---- Docker ----
+.docker/

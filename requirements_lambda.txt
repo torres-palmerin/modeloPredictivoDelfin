@@ -1,0 +1,15 @@
+# =============================================================
+# requirements_lambda.txt — Dependencias para AWS Lambda
+# Optimizado para tamaño mínimo y compatibilidad con Linux x86_64
+# =============================================================
+#
+# NOTAS:
+#   - boto3 NO se incluye: viene preinstalado en el runtime de Lambda.
+#   - scikit-learn, matplotlib y seaborn NO se incluyen:
+#     el Lambda solo ejecuta Fase 1 (limpieza) y Fase 2 (autómata).
+#   - Se fijan versiones exactas para reproducibilidad en la nube.
+# =============================================================
+
+pandas==2.1.5
+numpy==1.24.4
+openpyxl==3.1.5

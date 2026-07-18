@@ -1,0 +1,53 @@
+# =============================================================
+# Dockerfile.lambda — Empaquetado de AWS Lambda
+# Proyecto: Modelo Predictivo (Estancia Delfín)
+# =============================================================
+#
+# Propósito:
+#   Compilar las dependencias nativas (pandas, numpy, openpyxl)
+#   con binarios Linux x86_64 compatibles con el runtime de
+#   AWS Lambda Python 3.10.
+#
+# Uso:
+#   docker build -f Dockerfile.lambda -t lambda-builder .
+#   docker run --rm -v ${PWD}:/output lambda-builder
+#
+# =============================================================
+
+# ---- Fase 1: Builder sobre imagen oficial de AWS SAM ----
+FROM public.ecr.aws/sam/build-python3.10:latest AS builder
+
+# Metadatos
+LABEL maintainer="Estancia Delfín"
+LABEL description="Build stage para Lambda — dependencias Linux x86_64"
+
+WORKDIR /build
+
+# Instalar dependencias primero (capa de caché de Docker)
+COPY requirements_lambda.txt .
+RUN pip install --no-cache-dir --target /build/python -r requirements_lambda.txt
+
+# ---- Fase 2: Empaquetado final ----
+FROM python:3.10-slim AS packager
+
+WORKDIR /packager
+
+# Copiar las dependencias instaladas desde el builder
+COPY --from=builder /build/python /packager/python
+
+# Copiar código fuente del proyecto
+COPY lambda_handler.py /packager/
+COPY src/__init__.py /packager/src/__init__.py
+COPY src/data_cleaner.py /packager/src/data_cleaner.py
+COPY src/automaton_motor.py /packager/src/automaton_motor.py
+
+# Script de empaquetado: comprime todo en un ZIP
+RUN apt-get update && apt-get install -y --no-install-recommends zip && \
+    rm -rf /var/lib/apt/lists/*
+
+RUN zip -r9 /output/deployment_package.zip \
+    python/ \
+    lambda_handler.py \
+    src/
+
+CMD ["echo", "=== Build completado. Usa 'docker run' para extraer el ZIP. ==="]

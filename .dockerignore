@@ -1,0 +1,55 @@
+# =============================================================
+# .dockerignore — Optimización del build de Docker
+# Excluye archivos innecesarios para reducir tiempo de build
+# y tamaño de la imagen.
+# =============================================================
+
+# Git
+.git/
+.gitignore
+
+# Datos (nunca empaquetar en Lambda)
+data/
+*.xlsx
+*.xls
+*.csv
+
+# Python cache
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+# Dependencias de desarrollo (no necesarias en Lambda)
+requirements.txt
+notebooks/
+reports/
+
+# Despliegue anterior
+deployment_package.zip
+*.zip
+
+# IDE
+.vscode/
+.idea/
+
+# Docker
+Dockerfile*
+.dockerignore
+build_lambda.*
+build_lambda.ps1
+
+# Archivos del sistema
+*.log
+*.md
+.git/
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Variables de entorno
+.env
+.env.*
+
+# Modelos y checkpoints
+models/
+checkpoints/
