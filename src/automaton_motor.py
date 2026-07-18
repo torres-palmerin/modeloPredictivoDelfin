@@ -155,6 +155,22 @@ class AcademicAutomaton:
 
         df = df.sort_values(by=['ID', 'PERIODO']).copy()
 
+        # Validar que las columnas necesarias existan
+        for col_requerida in ['PPP', 'PPA']:
+            if col_requerida not in df.columns:
+                raise ValueError(
+                    f"Columna '{col_requerida}' no encontrada en el DataFrame. "
+                    f"Columnas disponibles: {list(df.columns)}"
+                )
+
+        # Detectar si PPP es idéntico a PPA (indicador de fallback del data_cleaner)
+        ppp_fallback = (df['PPP'] == df['PPA']).all()
+        if ppp_fallback:
+            logger.warning(
+                "PPP y PPA son idénticos — el autómata opera con PPA como "
+                "proxy del promedio del periodo (dataset sin PROMEDIO original)."
+            )
+
         # Precalcular columnas auxiliares vectorizadas
         df['_periodo_min'] = df.groupby('ID')['PERIODO'].transform('min')
         df['_es_primer_periodo'] = df['PERIODO'] == df['_periodo_min']
