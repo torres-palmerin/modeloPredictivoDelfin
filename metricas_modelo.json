@@ -1,0 +1,87 @@
+{
+  "modelo": "Random Forest Classifier",
+  "hiperparametros": {
+    "n_estimators": 100,
+    "max_depth": 10,
+    "test_size": 0.2,
+    "class_weight": "balanced",
+    "random_state": 42
+  },
+  "validacion": {
+    "accuracy_train": 0.9392,
+    "accuracy_test": 0.9348,
+    "brecha_overfitting": 0.0044,
+    "cross_val_scores": [
+      0.9242,
+      0.9268,
+      0.9442,
+      0.9355,
+      0.9317
+    ],
+    "cross_val_mean": 0.9325,
+    "cross_val_std": 0.007
+  },
+  "resultado": {
+    "precision_macro": 0.8947,
+    "recall_macro": 0.8772,
+    "n_muestras_totales": 94547,
+    "n_muestras_train": 75637,
+    "n_muestras_test": 18910,
+    "n_features": 4,
+    "n_clases_target": 5
+  },
+  "matriz_confusion": {
+    "valores_absolutos": [
+      [
+        12391,
+        0,
+        335,
+        0,
+        42
+      ],
+      [
+        0,
+        260,
+        0,
+        37,
+        0
+      ],
+      [
+        502,
+        0,
+        1581,
+        71,
+        0
+      ],
+      [
+        0,
+        35,
+        209,
+        1019,
+        0
+      ],
+      [
+        2,
+        0,
+        0,
+        0,
+        2426
+      ]
+    ],
+    "etiquetas": [
+      "Continuo regular",
+      "Exclusión",
+      "PAP",
+      "PAT",
+      "Primera vez en una carrera"
+    ]
+  },
+  "importancias_features": {
+    "PPP": 0.0785,
+    "PPA": 0.3086,
+    "ESTADO_ACTUAL_ENCODED": 0.6045,
+    "PROGRAMA_ENCODED": 0.0085
+  },
+  "reporte_clasificacion": "                            precision    recall  f1-score   support\n\n          Continuo regular       0.96      0.97      0.97     12768\n                 Exclusión       0.88      0.88      0.88       297\n                       PAP       0.74      0.73      0.74      2154\n                       PAT       0.90      0.81      0.85      1263\nPrimera vez en una carrera       0.98      1.00      0.99      2428\n\n                  accuracy                           0.93     18910\n                 macro avg       0.89      0.88      0.89     18910\n              weighted avg       0.93      0.93      0.93     18910\n",
+  "duracion_segundos": 4.83
+}

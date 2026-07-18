@@ -1,18 +1,18 @@
 """
-Handler de AWS Lambda — Pipeline de Trayectorias Académicas.
+Handler de AWS Lambda — API de Predicción de Trayectorias Académicas.
 
-Punto de entrada para la función Lambda que se activa automáticamente
-cuando se sube un archivo .xlsx al bucket 'delfin-datos-entrada'.
+Punto de entrada para la función Lambda detrás de API Gateway.
+Recibe un JSON con las características académicas de un estudiante y
+retorna la predicción del estado futuro junto con la certeza del modelo.
 
 Flujo:
-    S3 Event → Lambda → Descarga a memoria → Limpieza → Autómata →
-    → Subida de resultado a 'delfin-datos-procesados'
+    API Gateway (POST JSON) → Lambda → Carga modelo (S3 o /tmp/) →
+    → predict + predict_proba → Respuesta JSON con CORS
 
 Runtime: Python 3.10
-Memoria recomendada: 1024 MB+ (procesamiento de DataFrames grandes)
-Timeout recomendado: 300 segundos
+Memoria recomendada: 512 MB+
+Timeout recomendado: 30 segundos
 """
-import io
 import json
 import logging
 import os
@@ -22,22 +22,30 @@ from pathlib import Path
 from typing import Any, Dict
 
 import boto3
-import pandas as pd
+import joblib
+import numpy as np
 
 # ============================================================
 # CONFIGURACIÓN
 # ============================================================
-BUCKET_ENTRADA = os.environ.get('BUCKET_ENTRADA', 'delfin-datos-entrada')
-BUCKET_SALIDA = os.environ.get('BUCKET_SALIDA', 'delfin-datos-procesados')
-PREFIJO_SALIDA = os.environ.get('PREFIJO_SALIDA', 'procesado_')
-PPP_THRESHOLD = float(os.environ.get('PPP_THRESHOLD', '3.2'))
-PPA_THRESHOLD = float(os.environ.get('PPA_THRESHOLD', '3.2'))
+BUCKET_MODELOS = os.environ.get('BUCKET_MODELOS', 'delfin-modelos-sagemaker')
+CLAVE_MODELO = os.environ.get('CLAVE_MODELO', 'modelo_trayectorias.joblib')
+RUTA_LOCAL_MODELO = '/tmp/modelo_trayectorias.joblib'
 
-# Extensiones de archivo aceptadas
-EXTENSIONES_ACEPTADAS = {'.xlsx', '.xls'}
+CAMPOS_REQUERIDOS = ('PPP', 'PPA', 'ESTADO_ACTUAL_ENCODED', 'PROGRAMA_ENCODED')
 
-# Clientes S3 (reutilizados entre invocaciones en Lambda warm start)
+# Mapeo de clases target (debe coincidir con el orden del modelo entrenado)
+CLASES_TARGET = [
+    'Continuo regular',
+    'Exclusión',
+    'PAP',
+    'PAT',
+    'Primera vez en una carrera',
+]
+
+# Clientes y modelo (reutilizados entre invocaciones en Lambda warm start)
 _s3_client = None
+_modelo_cargado = None
 
 
 def _obtener_s3_client():
@@ -48,277 +56,284 @@ def _obtener_s3_client():
     return _s3_client
 
 
-def _configurar_logging() -> None:
-    """Configura logging compatible con AWS CloudWatch."""
-    log_level = os.environ.get('LOG_LEVEL', 'INFO').upper()
-    logging.basicConfig(
-        level=getattr(logging, log_level, logging.INFO),
-        format='%(asctime)s | %(levelname)-8s | %(name)s | %(message)s',
-        datefmt='%Y-%m-%d %H:%M:%S',
-        stream=sys.stdout,
-    )
-
-
-def _extraer_info_evento(event: Dict[str, Any]) -> tuple:
+def _cargar_modelo():
     """
-    Extrae bucket y key del evento S3 de forma robusta.
+    Carga el modelo desde /tmp/ si ya existe, o lo descarga de S3.
 
-    Soporta tanto el formato estándar de S3 Event Notification
-    como test events simplificados.
-
-    Returns:
-        Tupla (bucket_name, object_key).
-
-    Raises:
-        ValueError: Si el evento no contiene información válida de S3.
+    En Lambda warm starts, el modelo previamente descargado persiste
+    en /tmp/, evitando la descarga repetida del bucket S3.
     """
-    # Intento 1: Formato estándar de S3 Event Notification
-    try:
-        record = event['Records'][0]
-        bucket = record['s3']['bucket']['name']
-        key = record['s3']['object']['key']
-        return bucket, key
-    except (KeyError, IndexError):
-        pass
+    global _modelo_cargado
 
-    # Intento 2: Formato simplificado para testing directo
-    if 'bucket' in event and 'key' in event:
-        return event['bucket'], event['key']
+    if _modelo_cargado is not None:
+        logger.info("Modelo ya cargado en memoria (warm start)")
+        return _modelo_cargado
+
+    # Verificar si ya existe en /tmp/ (descarga previa)
+    if Path(RUTA_LOCAL_MODELO).exists():
+        logger.info("Cargando modelo desde /tmp/ (descarga previa)")
+        _modelo_cargado = joblib.load(RUTA_LOCAL_MODELO)
+        return _modelo_cargado
+
+    # Descargar de S3
+    logger.info("Descargando modelo de s3://%s/%s...", BUCKET_MODELOS, CLAVE_MODELO)
+    s3 = _obtener_s3_client()
+    s3.download_file(BUCKET_MODELOS, CLAVE_MODELO, RUTA_LOCAL_MODELO)
+    logger.info("Modelo descargado a /tmp/ (%.2f MB)", Path(RUTA_LOCAL_MODELO).stat().st_size / (1024 * 1024))
+
+    _modelo_cargado = joblib.load(RUTA_LOCAL_MODELO)
+    logger.info("Modelo cargado exitosamente")
+    return _modelo_cargado
+
+
+def _a_entero_seguro(valor: Any, nombre_campo: str) -> int:
+    """
+    Convierte un valor a entero de forma segura.
+
+    Si ya es int/float numérico, lo convierte directamente.
+    Si es string numérico (ej. '0', '3.0'), lo convierte.
+    Si es un label de clase (ej. 'Continuo regular'), busca su índice en CLASES_TARGET.
+    En caso contrario, lanza ValueError con mensaje claro.
+    """
+    if isinstance(valor, (int, float)):
+        if isinstance(valor, float) and not valor == int(valor):
+            raise ValueError(
+                f"El campo '{nombre_campo}' debe ser un entero, "
+                f"recibido float no entero: {valor}"
+            )
+        return int(valor)
+
+    if isinstance(valor, str):
+        # Intentar conversión numérica directa
+        try:
+            return int(valor)
+        except ValueError:
+            pass
+        try:
+            return int(float(valor))
+        except ValueError:
+            pass
+
+        # Buscar como label de clase
+        valor_limpio = valor.strip()
+        for idx, clase in enumerate(CLASES_TARGET):
+            if clase.lower() == valor_limpio.lower():
+                logger.warning(
+                    "Campo '%s' contenía el label '%s' en vez del encoded; resuelto a índice %d",
+                    nombre_campo, valor, idx,
+                )
+                return idx
+
+        raise ValueError(
+            f"El campo '{nombre_campo}' no se pudo convertir a entero. "
+            f"Valor recibido: {repr(valor)} (tipo {type(valor).__name__})"
+        )
 
     raise ValueError(
-        f"No se pudo extraer bucket/key del evento. "
-        f"Estructura recibida: {json.dumps(event, default=str)[:500]}"
+        f"El campo '{nombre_campo}' tiene un tipo inesperado: "
+        f"{type(valor).__name__} = {repr(valor)}"
     )
 
 
-def _validar_archivo_entrante(bucket: str, key: str) -> None:
-    """Valida que el archivo de entrada sea procesable."""
-    extension = Path(key).suffix.lower()
-    if extension not in EXTENSIONES_ACEPTADAS:
+def _validar_entrada(body: Dict[str, Any]) -> None:
+    """Valida que el JSON de entrada contenga todos los campos requeridos."""
+    if not isinstance(body, dict):
+        raise ValueError("El cuerpo de la solicitud debe ser un objeto JSON")
+
+    campos_faltantes = [c for c in CAMPOS_REQUERIDOS if c not in body]
+    if campos_faltantes:
         raise ValueError(
-            f"Extensión '{extension}' no soportada. "
-            f"Extensiones aceptadas: {EXTENSIONES_ACEPTADAS}"
+            f"Campos faltantes: {', '.join(campos_faltantes)}. "
+            f"Campos requeridos: {', '.join(CAMPOS_REQUERIDOS)}"
         )
 
-    # Verificar que el objeto exista en S3
-    s3 = _obtener_s3_client()
-    try:
-        respuesta = s3.head_object(Bucket=bucket, Key=key)
-        tamaño = respuesta.get('ContentLength', 0)
-        logger.info(
-            "Archivo encontrado en S3: s3://%s/%s (%d bytes)",
-            bucket, key, tamaño,
-        )
-        if tamaño == 0:
-            raise ValueError(f"El archivo en S3 está vacío: s3://{bucket}/{key}")
-    except s3.exceptions.ClientError as e:
-        error_code = e.response['Error']['Code']
-        if error_code == '404':
-            raise FileNotFoundError(f"El archivo no existe en S3: s3://{bucket}/{key}")
-        raise
+    for campo in CAMPOS_REQUERIDOS:
+        valor = body[campo]
+        if not isinstance(valor, (int, float)):
+            raise ValueError(f"El campo '{campo}' debe ser numérico, recibido: {type(valor).__name__}")
+        if np.isnan(valor):
+            raise ValueError(f"El campo '{campo}' no puede ser NaN")
 
 
-def _descargar_a_memoria(bucket: str, key: str) -> io.BytesIO:
-    """
-    Descarga un archivo de S3 directamente a un BytesIO en memoria.
-
-    Evita escribir en el disco efímero de Lambda, optimizando
-    rendimiento y limpieza de recursos.
-
-    Args:
-        bucket: Nombre del bucket S3.
-        key: Clave (ruta) del objeto en S3.
-
-    Returns:
-        Objeto BytesIO con el contenido del archivo.
-    """
-    logger.info("Descargando s3://%s/%s a memoria...", bucket, key)
-    s3 = _obtener_s3_client()
-
-    buffer = io.BytesIO()
-    s3.download_fileobj(Bucket=bucket, Key=key, Fileobj=buffer)
-    buffer.seek(0)
-
-    logger.info("Descarga completada — %d bytes en memoria", buffer.getbuffer().nbytes)
-    return buffer
-
-
-def _subir_resultado(df: pd.DataFrame, bucket: str, key_origen: str) -> str:
-    """
-    Convierte el DataFrame a CSV y lo sube al bucket de salida.
-
-    Args:
-        df: DataFrame procesado con las trayectorias del autómata.
-        bucket: Bucket de salida.
-        key_origen: Key del archivo original (para generar la key de salida).
-
-    Returns:
-        Key del archivo subido al bucket de salida.
-    """
-    # Generar nombre de archivo de salida
-    nombre_base = Path(key_origen).stem
-    key_salida = f"{PREFIJO_SALIDA}{nombre_base}.csv"
-
-    logger.info("Convirtiendo DataFrame a CSV...")
-    csv_buffer = io.BytesIO()
-    df.to_csv(csv_buffer, index=False, encoding='utf-8')
-    csv_buffer.seek(0)
-
-    logger.info("Subiendo resultado a s3://%s/%s...", bucket, key_salida)
-    s3 = _obtener_s3_client()
-    s3.upload_fileobj(
-        Fileobj=csv_buffer,
-        Bucket=bucket,
-        Key=key_salida,
-        ExtraArgs={
-            'ContentType': 'text/csv; charset=utf-8',
-            'Metadata': {
-                'registros_procesados': str(len(df)),
-                'estudiantes_unicos': str(df['ID'].nunique()),
-                'fuente_original': key_origen,
-            },
+def _construir_respuesta(
+    prediccion: str,
+    certeza: float,
+    probabilidades: Dict[str, float],
+    duracion: float,
+) -> Dict[str, Any]:
+    """Construye la respuesta formateada con headers CORS."""
+    return {
+        'statusCode': 200,
+        'headers': {
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Headers': 'Content-Type,Authorization',
+            'Access-Control-Allow-Methods': 'POST,OPTIONS',
+            'Content-Type': 'application/json',
         },
-    )
+        'body': json.dumps({
+            'prediccion': prediccion,
+            'certeza': round(certeza, 4),
+            'probabilidades': probabilidades,
+            'modelo': 'Random Forest Classifier',
+            'duracion_segundos': round(duracion, 4),
+        }, ensure_ascii=False, indent=2),
+    }
 
-    logger.info("Resultado subido exitosamente: s3://%s/%s", bucket, key_salida)
-    return key_salida
 
-
-def _ejecutar_pipeline(buffer_bytes: io.BytesIO, nombre_archivo: str) -> pd.DataFrame:
-    """
-    Ejecuta las Fases 1 y 2 del pipeline: limpieza + autómata.
-
-    Args:
-        buffer_bytes: Contenido del Excel en memoria.
-        nombre_archivo: Nombre legible del archivo para logging.
-
-    Returns:
-        DataFrame con las trayectorias del autómata calculadas.
-    """
-    # Importar módulos del pipeline (dentro de la función para manejar
-    # correctamente el path de Lambda Layers si se usan en el futuro)
-    from src.data_cleaner import clean_academic_data
-    from src.automaton_motor import AcademicAutomaton
-
-    # Fase 1: Limpieza
-    logger.info("=== FASE 1: Limpieza de datos ===")
-    df_limpio = clean_academic_data(buffer_bytes)
-
-    # Fase 2: Autómata
-    logger.info("=== FASE 2: Motor del autómata finito ===")
-    automaton = AcademicAutomaton(
-        ppp_threshold=PPP_THRESHOLD,
-        ppa_threshold=PPA_THRESHOLD,
-    )
-    df_procesado = automaton.build_trajectories(df_limpio)
-
-    return df_procesado
+def _construir_error(status_code: int, mensaje: str) -> Dict[str, Any]:
+    """Construye una respuesta de error con headers CORS."""
+    return {
+        'statusCode': status_code,
+        'headers': {
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Headers': 'Content-Type,Authorization',
+            'Access-Control-Allow-Methods': 'POST,OPTIONS',
+            'Content-Type': 'application/json',
+        },
+        'body': json.dumps({
+            'error': mensaje,
+        }, ensure_ascii=False, indent=2),
+    }
 
 
 # ============================================================
 # HANDLER PRINCIPAL
 # ============================================================
-logger = logging.getLogger('lambda_handler')
+logger = logging.getLogger('lambda_prediction')
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s | %(levelname)-8s | %(name)s | %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S',
+    stream=sys.stdout,
+)
 
 
 def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     """
-    Punto de entrada de la función Lambda.
+    Punto de entrada de la Lambda de predicción.
 
-    Se activa automáticamente cuando se sube un archivo .xlsx al
-    bucket 'delfin-datos-entrada'. Ejecuta el pipeline de limpieza
-    y autómata, y sube el resultado a 'delfin-datos-procesados'.
+    Espera un evento JSON con:
+        - PPP: Promedio Ponderado Permanente (float)
+        - PPA: Promedio Ponderado Acumulado (float)
+        - ESTADO_ACTUAL_ENCODED: Estado codificado del estudiante (int)
+        - PROGRAMA_ENCODED: Programa académico codificado (int)
 
-    Args:
-        event: Evento S3 de Amazon (S3 Event Notification).
-        context: Contexto de ejecución de Lambda (AWS).
-
-    Returns:
-        Diccionario con el resultado de la ejecución para CloudWatch.
+    Retorna:
+        - prediccion: Etiqueta del estado futuro predicho
+        - certeza: Porcentaje de certeza del modelo (0-1)
+        - probabilidades: Diccionario con la probabilidad de cada clase
     """
-    _configurar_logging()
     inicio = time.time()
 
-    logger.info("=" * 60)
-    logger.info("LAMBDA INICIADA — Pipeline de Trayectorias Académicas")
-    logger.info("ID de ejecución: %s", getattr(context, 'aws_request_id', 'local'))
-    logger.info("Memory limit (MB): %s", getattr(context, 'memory_limit_in_mb', 'N/A'))
-    logger.info("Time limit (s): %s", getattr(context, 'get_remaining_time_in_millis', lambda: 'N/A')())
-    logger.info("=" * 60)
+    logger.info("Lambda de predicción invocada — request_id=%s",
+                getattr(context, 'aws_request_id', 'local'))
 
     try:
-        # 1. Extraer información del evento S3
-        bucket_origen, key_origen = _extraer_info_evento(event)
-        logger.info("Evento S3 recibido — Bucket: %s, Key: %s", bucket_origen, key_origen)
+        # 1. Manejar preflight CORS
+        http_method = event.get('httpMethod', '')
+        if http_method == 'OPTIONS':
+            logger.info("Solicitud OPTIONS (preflight CORS)")
+            return {
+                'statusCode': 200,
+                'headers': {
+                    'Access-Control-Allow-Origin': '*',
+                    'Access-Control-Allow-Headers': 'Content-Type,Authorization',
+                    'Access-Control-Allow-Methods': 'POST,OPTIONS',
+                },
+                'body': '',
+            }
 
-        # 2. Validar archivo
-        _validar_archivo_entrante(bucket_origen, key_origen)
+        # 2. Extraer y parsear el body
+        body_raw = event.get('body', '{}')
 
-        # 3. Descargar a memoria
-        buffer = _descargar_a_memoria(bucket_origen, key_origen)
+        if isinstance(body_raw, str):
+            body = json.loads(body_raw)
+        else:
+            body = body_raw
 
-        # 4. Ejecutar pipeline
-        df_procesado = _ejecutar_pipeline(buffer, Path(key_origen).name)
+        logger.info("Entrada recibida: %s", json.dumps(body, default=str)[:500])
 
-        # 5. Subir resultado
-        key_salida = _subir_resultado(df_procesado, BUCKET_SALIDA, key_origen)
+        # 3. Validar entrada
+        _validar_entrada(body)
 
-        # 6. Limpiar memoria explícitamente
-        del buffer
+        # 4. Cargar modelo
+        modelo = _cargar_modelo()
 
-        # 7. Calcular métricas
+        # 5. Preparar features (el orden debe coincidir con el entrenamiento)
+        estado_encoded = _a_entero_seguro(body['ESTADO_ACTUAL_ENCODED'], 'ESTADO_ACTUAL_ENCODED')
+        programa_encoded = _a_entero_seguro(body['PROGRAMA_ENCODED'], 'PROGRAMA_ENCODED')
+
+        features = np.array([[
+            float(body['PPP']),
+            float(body['PPA']),
+            estado_encoded,
+            programa_encoded,
+        ]])
+
+        logger.info("Features: PPP=%.2f, PPA=%.2f, Estado=%s, Programa=%s",
+                     features[0][0], features[0][1],
+                     features[0][2], features[0][3])
+
+        # 6. Ejecutar predicción
+        prediccion_cruda = modelo.predict(features)[0]
+
+        if isinstance(prediccion_cruda, (int, np.integer, float, np.floating)):
+            prediccion_idx = int(prediccion_cruda)
+        elif isinstance(prediccion_cruda, str):
+            prediccion_limpia = prediccion_cruda.strip()
+            prediccion_idx = None
+            for idx, clase in enumerate(CLASES_TARGET):
+                if clase.lower() == prediccion_limpia.lower():
+                    prediccion_idx = idx
+                    break
+            if prediccion_idx is None:
+                raise ValueError(
+                    f"El modelo retornó un label no reconocido: {repr(prediccion_cruda)}. "
+                    f"Labels válidos: {CLASES_TARGET}"
+                )
+            logger.warning(
+                "Modelo retornó label string '%s', resuelto a índice %d",
+                prediccion_cruda, prediccion_idx,
+            )
+        else:
+            raise ValueError(
+                f"Tipo inesperado en predicción: {type(prediccion_cruda).__name__} = {repr(prediccion_cruda)}"
+            )
+
+        probabilidades_raw = modelo.predict_proba(features)[0]
+
+        prediccion_label = CLASES_TARGET[prediccion_idx]
+        certeza = float(probabilidades_raw[prediccion_idx])
+
+        probabilidades = {
+            CLASES_TARGET[i]: round(float(probabilidades_raw[i]), 4)
+            for i in range(len(CLASES_TARGET))
+        }
+
+        # Ordenar por probabilidad descendente
+        probabilidades = dict(sorted(probabilidades.items(), key=lambda x: x[1], reverse=True))
+
         duracion = time.time() - inicio
-        resultado = {
-            'statusCode': 200,
-            'body': {
-                'mensaje': 'Pipeline ejecutado exitosamente',
-                'archivo_entrada': f's3://{bucket_origen}/{key_origen}',
-                'archivo_salida': f's3://{BUCKET_SALIDA}/{key_salida}',
-                'registros_procesados': len(df_procesado),
-                'estudiantes_unicos': int(df_procesado['ID'].nunique()),
-                'duracion_segundos': round(duracion, 2),
-                'estados_generados': list(df_procesado['AUTOMATA_ESTADO_MATH'].unique()),
-            },
-        }
 
-        logger.info("=" * 60)
-        logger.info("LAMBDA COMPLETADA EXITOSAMENTE")
-        logger.info("  Duración: %.2f segundos", duracion)
-        logger.info("  Registros: %d", len(df_procesado))
-        logger.info("  Estudiantes: %d", df_procesado['ID'].nunique())
-        logger.info("  Salida: s3://%s/%s", BUCKET_SALIDA, key_salida)
-        logger.info("=" * 60)
+        logger.info("Predicción exitosa: %s (%.2f%% certeza) en %.4fs",
+                     prediccion_label, certeza * 100, duracion)
 
-        return resultado
+        # 7. Respuesta exitosa
+        return _construir_respuesta(prediccion_label, certeza, probabilidades, duracion)
 
-    except FileNotFoundError as e:
-        logger.error("Archivo no encontrado: %s", e)
-        return {
-            'statusCode': 404,
-            'body': {'error': f'Archivo no encontrado: {e}'},
-        }
+    except json.JSONDecodeError as e:
+        logger.error("JSON inválido: %s", e)
+        return _construir_error(400, f'JSON inválido: {e}')
 
     except ValueError as e:
         logger.error("Error de validación: %s", e)
-        return {
-            'statusCode': 400,
-            'body': {'error': f'Error de validación: {e}'},
-        }
+        return _construir_error(400, str(e))
 
-    except ImportError as e:
-        logger.error("Error de importación — verifica dependencias en Lambda Layer: %s", e)
-        return {
-            'statusCode': 500,
-            'body': {'error': f'Error de dependencias: {e}'},
-        }
+    except FileNotFoundError as e:
+        logger.error("Modelo no encontrado: %s", e)
+        return _construir_error(500, f'Modelo no disponible: {e}')
 
     except Exception as e:
         duracion = time.time() - inicio
-        logger.exception("Error inesperado en Lambda: %s", e)
-        return {
-            'statusCode': 500,
-            'body': {
-                'error': f'Error interno del servidor: {e}',
-                'duracion_segundos': round(duracion, 2),
-            },
-        }
+        logger.exception("Error inesperado: %s", e)
+        return _construir_error(500, f'Error interno del servidor: {e}')

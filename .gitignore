@@ -9,8 +9,22 @@ data/
 *.csv
 *.parquet
 *.sav
+
+# ---- Modelos entrenados y artefactos pesados ----
 *.pkl
 *.joblib
+*.pickle
+*.h5
+*.hdf5
+models/
+checkpoints/
+
+# ---- Variables de entorno y credenciales AWS ----
+.env
+.env.*
+.aws/
+credentials
+aws-credentials
 
 # ---- Archivos Python ----
 __pycache__/
@@ -28,6 +42,10 @@ venv/
 env/
 ENV/
 
+# ---- Docker ----
+.docker/
+docker-compose.override.yml
+
 # ---- IDE y editores ----
 .vscode/
 .idea/
@@ -36,6 +54,7 @@ ENV/
 *~
 .DS_Store
 Thumbs.db
+desktop.ini
 
 # ---- Logs ----
 *.log
@@ -43,30 +62,20 @@ logs/
 
 # ---- Jupyter Notebooks ----
 .ipynb_checkpoints/
-*.ipynb_checkpoints
-
-# ---- Modelos entrenados y artefactos ----
-models/
-*.joblib
-*.pickle
-checkpoints/
-
-# ---- Variables de entorno ----
-.env
-.env.*
 
 # ---- Cobertura de código y tests ----
 .coverage
 htmlcov/
 .pytest_cache/
 .mypy_cache/
-
-# ---- Archivos del sistema ----
-desktop.ini
+.ruff_cache/
 
 # ---- Despliegue Lambda ----
 deployment_package.zip
 *.zip
 
-# ---- Docker ----
-.docker/
+# ---- Streamlit ----
+.streamlit/secrets.toml
+
+# ---- Archivos del sistema ----
+desktop.ini
