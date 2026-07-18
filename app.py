@@ -11,12 +11,20 @@ Requiere:
     - API Gateway activo en produccion
     - Variables de entorno o secrets de AWS configurados
 """
+import subprocess
+import sys
+
+try:
+    import boto3
+except ModuleNotFoundError:
+    subprocess.check_call([sys.executable, "-m", "pip", "install", "boto3"])
+    import boto3
+
 import io
 import json
 import os
 from pathlib import Path
 
-import boto3
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
