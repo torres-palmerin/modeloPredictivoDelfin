@@ -7,12 +7,16 @@ Uso:
     streamlit run app.py
 
 Requiere:
-    - processed CSV en la raiz (para reconstruir categorias)
+    - Archivo checkpoint_dataset_procesado.xlsx en S3 (delfin-datos-procesados)
     - API Gateway activo en produccion
+    - Variables de entorno o secrets de AWS configurados
 """
+import io
 import json
+import os
 from pathlib import Path
 
+import boto3
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
@@ -61,18 +65,42 @@ COLORES_ESTADO = {
 }
 
 # ============================================================
+# CONFIGURACION S3
+# ============================================================
+S3_BUCKET = 'delfin-datos-procesados'
+S3_KEY = 'checkpoint_dataset_procesado.xlsx'
+
+# ============================================================
 # CACHING
 # ============================================================
 @st.cache_data
 def cargar_categorias():
-    """Reconstruye los mapeos de encoding a partir del CSV procesado."""
-    csv_candidatos = list(Path('.').glob('procesado_*.csv'))
-    if not csv_candidatos:
-        csv_candidatos = list(Path('data').glob('*.csv'))
-    if not csv_candidatos:
-        return None
+    """Reconstruye los mapeos de encoding desde el archivo en S3."""
+    try:
+        aws_access_key = st.secrets.get('AWS_ACCESS_KEY_ID') or os.environ.get('AWS_ACCESS_KEY_ID')
+        aws_secret_key = st.secrets.get('AWS_SECRET_ACCESS_KEY') or os.environ.get('AWS_SECRET_ACCESS_KEY')
+        aws_region = st.secrets.get('AWS_DEFAULT_REGION') or os.environ.get('AWS_DEFAULT_REGION', 'us-east-2')
 
-    df = pd.read_csv(csv_candidatos[-1])
+        if not aws_access_key or not aws_secret_key:
+            st.error('Credenciales AWS no configuradas. Define AWS_ACCESS_KEY_ID y AWS_SECRET_ACCESS_KEY.')
+            st.stop()
+
+        s3 = boto3.client(
+            's3',
+            aws_access_key_id=aws_access_key,
+            aws_secret_access_key=aws_secret_key,
+            region_name=aws_region,
+        )
+
+        buffer = io.BytesIO()
+        s3.download_fileobj(S3_BUCKET, S3_KEY, buffer)
+        buffer.seek(0)
+
+        df = pd.read_excel(buffer, engine='openpyxl')
+    except Exception as e:
+        st.error(f'Error al cargar datos desde S3: {e}')
+        st.stop()
+
     programa_cat = df['PROGRAMA'].astype('category')
     estado_cat = df['AUTOMATA_ESTADO_MATH'].astype('category')
 
