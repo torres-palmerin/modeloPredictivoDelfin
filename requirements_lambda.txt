@@ -7,9 +7,10 @@
 #   - boto3 NO se incluye: viene preinstalado en el runtime de Lambda.
 #   - scikit-learn, matplotlib y seaborn NO se incluyen:
 #     el Lambda solo ejecuta Fase 1 (limpieza) y Fase 2 (autómata).
-#   - Se fijan versiones exactas para reproducibilidad en la nube.
+#   - Versiones con rangos flexibles para compatibilidad óptima
+#     con la imagen de AWS SAM Python 3.10 Linux x86_64.
 # =============================================================
 
-pandas==2.1.5
-numpy==1.24.4
-openpyxl==3.1.5
+pandas>=2.0.0,<2.2.0
+numpy>=1.24.0,<1.25.0
+openpyxl>=3.1.0

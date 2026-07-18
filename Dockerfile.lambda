@@ -42,8 +42,9 @@ COPY src/data_cleaner.py /packager/src/data_cleaner.py
 COPY src/automaton_motor.py /packager/src/automaton_motor.py
 
 # Script de empaquetado: comprime todo en un ZIP
-RUN apt-get update && apt-get install -y --no-install-recommends zip && \
-    rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y --no-install-recommends zip && rm -rf /var/lib/apt/lists/*
+
+RUN mkdir -p /output
 
 RUN zip -r9 /output/deployment_package.zip \
     python/ \
