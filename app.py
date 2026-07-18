@@ -7,23 +7,9 @@ Uso:
     streamlit run app.py
 
 Requiere:
-    - Archivo checkpoint_dataset_procesado.xlsx en S3 (delfin-datos-procesados)
     - API Gateway activo en produccion
-    - Variables de entorno o secrets de AWS configurados
 """
-import subprocess
-import sys
-
-try:
-    import boto3
-except ModuleNotFoundError:
-    # Agregamos el flag '--user' para evitar el error de 'Permission denied'
-    subprocess.check_call([sys.executable, "-m", "pip", "install", "--user", "boto3"])
-    import boto3
-
-import io
 import json
-import os
 from pathlib import Path
 
 import pandas as pd
@@ -66,63 +52,62 @@ TEXTO_SECUNDARIO = '#A0A4A8'
 
 COLORES_ESTADO = {
     'Continuo regular': COLOR_EXITO,
+    'Exclusión': '#8E44AD',
     'PAP': COLOR_ADVERTENCIA,
     'PAT': COLOR_PELIGRO,
-    'Exclusion': '#8E44AD',
-    'Recuperacion academica': '#E67E22',
     'Primera vez en una carrera': COLOR_SECUNDARIO,
 }
 
 # ============================================================
-# CONFIGURACION S3
+# CATEGORIAS FIJAS (编码映射)
 # ============================================================
-S3_BUCKET = 'delfin-datos-procesados'
-S3_KEY = 'checkpoint_dataset_procesado.xlsx'
+PROGRAMAS = [
+    "ADMINISTRACION DE EMPRESAS",
+    "ARQUITECTURA",
+    "CIENCIA POLITICA Y RELAC INTER",
+    "COMUNICACION SOCIAL",
+    "CONTADURIA PUBLICA",
+    "DERECHO",
+    "DISEÑO",
+    "ECONOMIA",
+    "FINANZAS Y NEGOCIOS INTERNACIO",
+    "INGENIERIA AMBIENTAL",
+    "INGENIERIA BIOMEDICA",
+    "INGENIERIA CIVIL",
+    "INGENIERIA DE SISTEMAS",
+    "INGENIERIA DE SISTEMAS Y COMPU",
+    "INGENIERIA ELECTRICA",
+    "INGENIERIA ELECTRONICA",
+    "INGENIERIA GENERAL",
+    "INGENIERIA INDUSTRIAL",
+    "INGENIERIA MECANICA",
+    "INGENIERIA MECATRONICA",
+    "INGENIERIA NAVAL",
+    "INGENIERIA QUIMICA",
+    "MARKETING Y TRANSFORMACION DIG",
+    "PROF CONTADURIA PUB PARA TECNO",
+    "PROF IN SISTEMAS PARA TECNOLOG",
+    "PSICOLOGIA",
+    "TECNO OPERACION DE PLANT PETRO",
+    "TECNOLOGIA EN GES CONTAB Y FIN",
+    "TECNOLOGIA EN SISTEMAS",
+]
+ESTADOS = ["Continuo regular", "Exclusión", "PAP", "PAT", "Primera vez en una carrera"]
 
 # ============================================================
 # CACHING
 # ============================================================
 @st.cache_data
 def cargar_categorias():
-    """Reconstruye los mapeos de encoding desde el archivo en S3."""
-    try:
-        aws_access_key = st.secrets.get('AWS_ACCESS_KEY_ID') or os.environ.get('AWS_ACCESS_KEY_ID')
-        aws_secret_key = st.secrets.get('AWS_SECRET_ACCESS_KEY') or os.environ.get('AWS_SECRET_ACCESS_KEY')
-        aws_region = st.secrets.get('AWS_DEFAULT_REGION') or os.environ.get('AWS_DEFAULT_REGION', 'us-east-2')
-
-        if not aws_access_key or not aws_secret_key:
-            st.error('Credenciales AWS no configuradas. Define AWS_ACCESS_KEY_ID y AWS_SECRET_ACCESS_KEY.')
-            st.stop()
-
-        s3 = boto3.client(
-            's3',
-            aws_access_key_id=aws_access_key,
-            aws_secret_access_key=aws_secret_key,
-            region_name=aws_region,
-        )
-
-        buffer = io.BytesIO()
-        s3.download_fileobj(S3_BUCKET, S3_KEY, buffer)
-        buffer.seek(0)
-
-        df = pd.read_excel(buffer, engine='openpyxl')
-    except Exception as e:
-        st.error(f'Error al cargar datos desde S3: {e}')
-        st.stop()
-
-    programa_cat = df['PROGRAMA'].astype('category')
-    estado_cat = df['AUTOMATA_ESTADO_MATH'].astype('category')
-
-    mapa_programa = {n: c for c, n in enumerate(programa_cat.cat.categories)}
-    mapa_estado = {n: c for c, n in enumerate(estado_cat.cat.categories)}
+    """Retorna los mapeos de encoding a partir de las listas fijas."""
+    mapa_programa = {n: c for c, n in enumerate(PROGRAMAS)}
+    mapa_estado = {n: c for c, n in enumerate(ESTADOS)}
 
     return {
         'programas': mapa_programa,
         'estados': mapa_estado,
-        'programas_orden': list(programa_cat.cat.categories),
-        'estados_orden': list(estado_cat.cat.categories),
-        'total_registros': len(df),
-        'total_estudiantes': df['ID'].nunique(),
+        'programas_orden': PROGRAMAS,
+        'estados_orden': ESTADOS,
     }
 
 
@@ -392,8 +377,6 @@ with st.sidebar:
 
     st.markdown('---')
     st.caption('Backend: AWS Lambda (Random Forest)')
-    st.caption(f'Registros entrenados: {categorias["total_registros"]:,}')
-    st.caption(f'Estudiantes: {categorias["total_estudiantes"]:,}')
 
 
 # ============================================================
@@ -452,13 +435,14 @@ with tab_prediccion:
                 probabilidades = respuesta['probabilidades']
 
                 # Banner de resultado
-                if 'regular' in prediccion.lower() or 'primera' in prediccion.lower():
+                prediccion_lower = prediccion.lower()
+                if 'regular' in prediccion_lower or 'primera' in prediccion_lower:
                     clase_banner = 'exito'
-                elif 'exclusion' in prediccion.lower():
+                elif 'exclusi' in prediccion_lower:
                     clase_banner = 'peligro'
-                elif 'pat' in prediccion.lower():
+                elif 'pat' in prediccion_lower:
                     clase_banner = 'peligro'
-                elif 'pap' in prediccion.lower():
+                elif 'pap' in prediccion_lower:
                     clase_banner = 'advertencia'
                 else:
                     clase_banner = 'advertencia'
