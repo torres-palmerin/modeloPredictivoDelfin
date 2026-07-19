@@ -23,10 +23,12 @@ RUTA_FIGURAS = "reports/figures"
 PPP_THRESHOLD = 3.2
 PPA_THRESHOLD = 3.2
 
-# Parámetros del modelo
+# Parámetros del modelo (anti-overfitting)
 TEST_SIZE = 0.2
-N_ESTIMATORS = 100
-MAX_DEPTH = 10
+N_ESTIMATORS = 150
+MAX_DEPTH = 5
+MAX_FEATURES = 'sqrt'
+MIN_SAMPLES_LEAF = 5
 
 # ============================================================
 # CONFIGURACIÓN DE LOGGING
@@ -121,6 +123,8 @@ def main() -> None:
             test_size=TEST_SIZE,
             n_estimators=N_ESTIMATORS,
             max_depth=MAX_DEPTH,
+            max_features=MAX_FEATURES,
+            min_samples_leaf=MIN_SAMPLES_LEAF,
         )
 
         # =======================================================

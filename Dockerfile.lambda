@@ -38,7 +38,7 @@ COPY src/automaton_motor.py ${LAMBDA_TASK_ROOT}/src/automaton_motor.py
 COPY src/predict_models.py ${LAMBDA_TASK_ROOT}/src/predict_models.py
 COPY src/markov_analysis.py ${LAMBDA_TASK_ROOT}/src/markov_analysis.py
 COPY src/visualizer.py ${LAMBDA_TASK_ROOT}/src/visualizer.py
-COPY src/sagemaker_entry.py ${LAMBDA_TASK_ROOT}/src/sagemaker_entry.py
+COPY sagemaker_entry.py ${LAMBDA_TASK_ROOT}/
 
 # Punto de entrada: módulo.función
 CMD [ "lambda_handler.lambda_handler" ]

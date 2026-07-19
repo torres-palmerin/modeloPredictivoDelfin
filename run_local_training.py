@@ -34,9 +34,11 @@ logging.basicConfig(
 )
 logger = logging.getLogger('local_training')
 
-# Hiperparámetros por defecto
-N_ESTIMATORS = 100
-MAX_DEPTH = 10
+# Hiperparámetros por defecto (anti-overfitting)
+N_ESTIMATORS = 150
+MAX_DEPTH = 5
+MAX_FEATURES = 'sqrt'
+MIN_SAMPLES_LEAF = 5
 TEST_SIZE = 0.2
 
 # Archivos de salida
@@ -151,6 +153,8 @@ def _validar_modelo(resultado, X, y, duracion: float) -> dict:
     modelo_cv = RandomForestClassifier(
         n_estimators=N_ESTIMATORS,
         max_depth=MAX_DEPTH,
+        max_features=MAX_FEATURES,
+        min_samples_leaf=MIN_SAMPLES_LEAF,
         class_weight='balanced',
         random_state=42,
     )
@@ -210,6 +214,8 @@ def _guardar_metricas(validacion: dict, duracion: float) -> None:
         'hiperparametros': {
             'n_estimators': N_ESTIMATORS,
             'max_depth': MAX_DEPTH,
+            'max_features': MAX_FEATURES,
+            'min_samples_leaf': MIN_SAMPLES_LEAF,
             'test_size': TEST_SIZE,
             'class_weight': 'balanced',
             'random_state': 42,
@@ -260,11 +266,13 @@ def main() -> None:
     logger.info("ENTRENAMIENTO LOCAL — Pipeline de Modelado Predictivo")
     logger.info("=" * 60)
     logger.info("Hiperparámetros:")
-    logger.info("  n_estimators: %d", N_ESTIMATORS)
-    logger.info("  max_depth:    %d", MAX_DEPTH)
-    logger.info("  test_size:    %.0f%%", TEST_SIZE * 100)
-    logger.info("  class_weight: balanced")
-    logger.info("  random_state: 42")
+    logger.info("  n_estimators:    %d", N_ESTIMATORS)
+    logger.info("  max_depth:       %d", MAX_DEPTH)
+    logger.info("  max_features:    %s", MAX_FEATURES)
+    logger.info("  min_samples_leaf: %d", MIN_SAMPLES_LEAF)
+    logger.info("  test_size:       %.0f%%", TEST_SIZE * 100)
+    logger.info("  class_weight:    balanced")
+    logger.info("  random_state:    42")
     logger.info("=" * 60)
 
     try:
@@ -300,6 +308,8 @@ def main() -> None:
             test_size=TEST_SIZE,
             n_estimators=N_ESTIMATORS,
             max_depth=MAX_DEPTH,
+            max_features=MAX_FEATURES,
+            min_samples_leaf=MIN_SAMPLES_LEAF,
         )
         duracion = time.time() - inicio
 

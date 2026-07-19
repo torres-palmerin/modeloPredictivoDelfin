@@ -129,11 +129,32 @@ Log-Exito "Imagen Docker construida exitosamente."
 # ============================================================
 # PASO 4: Extraer deployment_package.zip
 # ============================================================
-Log-Info "Extrayendo $ARCHIVO_ZIP..."
+Log-Info "Extrayendo artefactos del contenedor..."
+
+$TEMP_DIR = Join-Path $RUTA_PROYECTO ".lambda_build_tmp"
+
+# Limpiar directorio temporal si existe
+if (Test-Path $TEMP_DIR) {
+    Remove-Item $TEMP_DIR -Recurse -Force
+}
 
 docker create --name $CONTENEDOR_NOMBRE $IMAGEN_NOMBRE true 2>$null | Out-Null
-docker cp "${CONTENEDOR_NOMBRE}:/output/${ARCHIVO_ZIP}" $RUTA_SALIDA
+
+# Copiar todo el contenido de LAMBDA_TASK_ROOT (/var/task) a directorio temporal
+docker cp "${CONTENEDOR_NOMBRE}:/var/task/." $TEMP_DIR
 docker rm $CONTENEDOR_NOMBRE 2>$null | Out-Null
+
+if (-not (Test-Path $TEMP_DIR)) {
+    Log-Error "No se pudieron extraer los artefactos del contenedor."
+    exit 1
+}
+
+# Comprimir en ZIP
+Log-Info "Comprimiendo artefactos en $ARCHIVO_ZIP..."
+Compress-Archive -Path "$TEMP_DIR\*" -DestinationPath $RUTA_SALIDA -Force
+
+# Limpiar directorio temporal
+Remove-Item $TEMP_DIR -Recurse -Force
 
 if (-not (Test-Path $RUTA_SALIDA)) {
     Log-Error "No se pudo extraer $ARCHIVO_ZIP."
