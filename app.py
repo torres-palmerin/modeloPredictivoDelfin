@@ -34,32 +34,34 @@ API_URL = 'https://hhufc4ijx5.execute-api.us-east-2.amazonaws.com/default/Delfin
 API_TIMEOUT = 45
 
 # ============================================================
-# COLORES INSTITUCIONALES
+# PALETA DE COLORES — DASHBOARD OSCURO PREMIUM
 # ============================================================
-COLOR_PRIMARIO = '#1B3A5C'
-COLOR_SECUNDARIO = '#3A7CA5'
-COLOR_ACCENTO = '#5DADE2'
-COLOR_EXITO = '#27AE60'
-COLOR_ADVERTENCIA = '#F39C12'
-COLOR_PELIGRO = '#E74C3C'
+BG_GENERAL = '#0b1326'
+BG_CARD = '#1e293b'
+BG_CARD_ALT = '#171f33'
+BG_SIDEBAR = '#131b2e'
+BORDER_SUBTLE = '#1e3a5f'
 
-# Paleta oscura del dashboard
-FONDO_SUPERFICIE = '#1A1D24'
-FONDO_TARJETA = '#1E222B'
-BORDE_OSCURO = '#2D3440'
-TEXTO_CLARO = '#FAFAFA'
-TEXTO_SECUNDARIO = '#A0A4A8'
+TEXTO_PRIMARY = '#f8fafc'
+TEXTO_SECONDARY = '#94a3b8'
+TEXTO_MUTED = '#475569'
+
+ACCENT_BLUE = '#4d8eff'
+ACCENT_GREEN = '#4edea3'
+ACCENT_RED = '#f87171'
+ACCENT_AMBER = '#fbbf24'
+ACCENT_PURPLE = '#a78bfa'
 
 COLORES_ESTADO = {
-    'Continuo regular': COLOR_EXITO,
-    'Exclusión': '#8E44AD',
-    'PAP': COLOR_ADVERTENCIA,
-    'PAT': COLOR_PELIGRO,
-    'Primera vez en una carrera': COLOR_SECUNDARIO,
+    'Continuo regular': ACCENT_GREEN,
+    'Exclusión': ACCENT_PURPLE,
+    'PAP': ACCENT_AMBER,
+    'PAT': ACCENT_RED,
+    'Primera vez en una carrera': ACCENT_BLUE,
 }
 
 # ============================================================
-# CATEGORIAS FIJAS (编码映射)
+# CATEGORIAS FIJAS
 # ============================================================
 PROGRAMAS = [
     "ADMINISTRACION DE EMPRESAS",
@@ -102,7 +104,6 @@ def cargar_categorias():
     """Retorna los mapeos de encoding a partir de las listas fijas."""
     mapa_programa = {n: c for c, n in enumerate(PROGRAMAS)}
     mapa_estado = {n: c for c, n in enumerate(ESTADOS)}
-
     return {
         'programas': mapa_programa,
         'estados': mapa_estado,
@@ -121,208 +122,340 @@ def cargar_metricas():
         return json.load(f)
 
 
-def llamar_api(payload: dict) -> dict:
-    """Envia POST a la API Gateway y retorna la respuesta JSON."""
-    respuesta = requests.post(API_URL, json=payload, timeout=API_TIMEOUT)
-    respuesta.raise_for_status()
-    return respuesta.json()
-
-
 # ============================================================
-# ESTILOS CSS — DARK MODE PROFESIONAL
+# CSS GLOBAL — DARK PREMIUM
 # ============================================================
 st.markdown("""
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
 
+    /* ===== GLOBAL ===== */
     html, body, [class*="css"] {
-        font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif !important;
+    }
+    html, body {
+        background-color: #0b1326;
+        color: #f8fafc;
+    }
+    .stApp {
+        background-color: #0b1326;
     }
 
-    /* SIDEBAR */
+    /* ===== MAIN CONTENT ===== */
+    section.main .block-container {
+        padding-top: 2rem !important;
+        padding-bottom: 1rem !important;
+    }
+
+    /* ===== SIDEBAR ===== */
     section[data-testid="stSidebar"] {
-        background-color: #F0F4F8;
+        background-color: #131b2e !important;
+        border-right: 1px solid #1e3a5f !important;
+    }
+    section[data-testid="stSidebar"] [data-testid="stSidebarHeaderContent"] {
+        padding-top: 0.5rem;
     }
     section[data-testid="stSidebar"] h1,
     section[data-testid="stSidebar"] h2,
     section[data-testid="stSidebar"] h3 {
-        color: #1B3A5C !important;
+        color: #f8fafc !important;
         font-family: 'Inter', sans-serif !important;
+        font-weight: 700 !important;
     }
     section[data-testid="stSidebar"] label,
     section[data-testid="stSidebar"] [data-testid="stWidgetLabel"],
-    section[data-testid="stSidebar"] .stMarkdown p,
-    section[data-testid="stSidebar"] .stMarkdown li,
-    section[data-testid="stSidebar"] span {
-        color: #262730 !important;
+    section[data-testid="stSidebar"] .stMarkdown p {
+        color: #94a3b8 !important;
+        font-size: 0.82rem !important;
+        text-transform: uppercase !important;
+        letter-spacing: 0.06em !important;
+        font-weight: 600 !important;
     }
     section[data-testid="stSidebar"] [data-testid="stWidgetValue"],
     section[data-testid="stSidebar"] .stSelectbox p,
     section[data-testid="stSidebar"] .stSlider p {
-        color: #262730 !important;
+        color: #f8fafc !important;
     }
     section[data-testid="stSidebar"] .stCaption,
-    section[data-testid="stSidebar"] small,
-    section[data-testid="stSidebar"] [data-testid="stTooltipInline"] {
-        color: #555555 !important;
+    section[data-testid="stSidebar"] small {
+        color: #475569 !important;
+        font-size: 0.75rem !important;
     }
     section[data-testid="stSidebar"] hr {
-        border-color: #CBD5E1;
+        border-color: #1e3a5f !important;
+        opacity: 0.5;
+    }
+    section[data-testid="stSidebar"] [data-testid="stMarkdownContainer"] p {
+        color: #94a3b8;
     }
 
-    /* BOTON */
+    /* ===== SELECTBOX & SLIDER ===== */
+    [data-testid="stSelectbox"] > div > div {
+        background-color: #171f33 !important;
+        border-color: #1e3a5f !important;
+        color: #f8fafc !important;
+        border-radius: 8px !important;
+    }
+    [data-testid="stSlider"] .stSlider label span {
+        color: #94a3b8 !important;
+    }
+    [data-testid="stSlider"] [data-testid="stThumbValue"] {
+        color: #f8fafc !important;
+    }
+
+    /* ===== BOTON PREDICIR ===== */
     .stButton > button {
-        background-color: #1B3A5C;
-        color: white;
-        border-radius: 8px;
-        padding: 12px 32px;
-        font-weight: 600;
-        font-family: 'Inter', sans-serif;
-        width: 100%;
-        border: none;
-        transition: background-color 0.2s;
+        background: linear-gradient(135deg, #4d8eff 0%, #3b6fd9 100%) !important;
+        color: #ffffff !important;
+        border-radius: 10px !important;
+        padding: 14px 32px !important;
+        font-weight: 700 !important;
+        font-family: 'Inter', sans-serif !important;
+        font-size: 0.95rem !important;
+        letter-spacing: 0.02em !important;
+        width: 100% !important;
+        border: none !important;
+        box-shadow: 0 4px 20px rgba(77, 142, 255, 0.3) !important;
+        transition: all 0.3s ease !important;
     }
     .stButton > button:hover {
-        background-color: #3A7CA5;
+        background: linear-gradient(135deg, #6ba1ff 0%, #4d8eff 100%) !important;
+        box-shadow: 0 6px 28px rgba(77, 142, 255, 0.45) !important;
+        transform: translateY(-1px) !important;
+    }
+    .stButton > button:active {
+        transform: translateY(0) !important;
     }
 
-    /* BANNERS */
-    .banner-resultado {
-        padding: 24px 32px;
-        border-radius: 12px;
+    /* ===== HERO CARD — PREDICCION ===== */
+    .hero-card {
+        background: linear-gradient(135deg, #1e293b 0%, #171f33 100%);
+        border: 1px solid #1e3a5f;
+        border-radius: 16px;
+        padding: 36px 32px;
         text-align: center;
-        font-size: 1.4em;
-        font-weight: 700;
-        font-family: 'Inter', sans-serif;
-        letter-spacing: -0.02em;
-        margin: 8px 0 24px 0;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
     }
-    .banner-exito {
-        background: linear-gradient(135deg, #1E8449 0%, #27AE60 100%);
-        color: white;
+    .hero-card-label {
+        font-size: 0.75rem;
+        font-weight: 600;
+        color: #94a3b8;
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+        margin-bottom: 12px;
     }
-    .banner-advertencia {
-        background: linear-gradient(135deg, #D68910 0%, #F39C12 100%);
-        color: white;
-    }
-    .banner-peligro {
-        background: linear-gradient(135deg, #C0392B 0%, #E74C3C 100%);
-        color: white;
-    }
-
-    /* TARJETAS TOP-3 */
-    .top3-card {
-        background-color: #1E222B;
-        border: 1px solid #2D3440;
-        border-radius: 12px;
-        padding: 24px 20px;
-        text-align: center;
-        transition: border-color 0.2s, transform 0.2s;
-    }
-    .top3-card:hover {
-        border-color: #3A7CA5;
-        transform: translateY(-2px);
-    }
-    .top3-rank {
-        font-size: 2.2em;
-        font-weight: 700;
-        color: #555E68;
-        font-family: 'Inter', sans-serif;
-        line-height: 1;
+    .hero-card-value {
+        font-size: 2.4em;
+        font-weight: 800;
+        color: #f8fafc;
+        letter-spacing: -0.03em;
+        line-height: 1.1;
         margin-bottom: 8px;
     }
-    .top3-rank-1 { color: #F39C12; }
-    .top3-rank-2 { color: #A0A4A8; }
-    .top3-rank-3 { color: #CD7F32; }
-    .top3-nombre {
-        font-size: 1.05em;
-        font-weight: 600;
-        color: #FAFAFA;
-        font-family: 'Inter', sans-serif;
-        margin-bottom: 12px;
-        line-height: 1.3;
-    }
-    .top3-porcentaje {
-        font-size: 1.8em;
-        font-weight: 700;
-        color: #27AE60;
-        font-family: 'Inter', sans-serif;
-    }
-    .top3-label {
-        font-size: 0.75em;
+    .hero-card-sub {
+        font-size: 0.85rem;
+        color: #475569;
         font-weight: 500;
-        color: #555E68;
-        text-transform: uppercase;
-        letter-spacing: 0.08em;
-        margin-top: 4px;
     }
 
-    /* SECCIONES */
-    .section-title {
-        font-family: 'Inter', sans-serif;
-        font-weight: 700;
-        font-size: 1.3em;
-        color: #FAFAFA;
-        letter-spacing: -0.02em;
+    /* ===== CONFIDENCE CARD ===== */
+    .confidence-card {
+        background: linear-gradient(135deg, #1e293b 0%, #171f33 100%);
+        border: 1px solid #1e3a5f;
+        border-radius: 16px;
+        padding: 36px 32px;
+        text-align: center;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    }
+    .confidence-label {
+        font-size: 0.75rem;
+        font-weight: 600;
+        color: #94a3b8;
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+        margin-bottom: 12px;
+    }
+    .confidence-value {
+        font-size: 3em;
+        font-weight: 800;
+        color: #4edea3;
+        letter-spacing: -0.03em;
+        line-height: 1.1;
         margin-bottom: 4px;
     }
-    .section-subtitle {
-        font-family: 'Inter', sans-serif;
-        font-weight: 400;
-        font-size: 0.95em;
-        color: #A0A4A8;
-        margin-bottom: 16px;
+    .confidence-bar-bg {
+        background: #0b1326;
+        border-radius: 8px;
+        height: 8px;
+        margin-top: 16px;
+        overflow: hidden;
+    }
+    .confidence-bar-fill {
+        height: 100%;
+        border-radius: 8px;
+        background: linear-gradient(90deg, #4edea3, #4d8eff);
     }
 
-    /* METRICAS */
+    /* ===== PROBABILITY BAR ITEM ===== */
+    .prob-item {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        margin-bottom: 14px;
+    }
+    .prob-label {
+        min-width: 200px;
+        font-size: 0.88rem;
+        font-weight: 500;
+        color: #f8fafc;
+        text-align: right;
+    }
+    .prob-bar-track {
+        flex: 1;
+        background: #0b1326;
+        border-radius: 6px;
+        height: 24px;
+        overflow: hidden;
+        position: relative;
+    }
+    .prob-bar-fill {
+        height: 100%;
+        border-radius: 6px;
+        transition: width 0.6s ease;
+    }
+    .prob-pct {
+        min-width: 52px;
+        font-size: 0.88rem;
+        font-weight: 700;
+        color: #f8fafc;
+        text-align: left;
+    }
+
+    /* ===== METRIC CARDS (TECH PANEL) ===== */
+    .metric-card {
+        background: linear-gradient(135deg, #1e293b 0%, #171f33 100%);
+        border: 1px solid #1e3a5f;
+        border-radius: 14px;
+        padding: 22px 20px;
+        text-align: center;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+        transition: border-color 0.2s;
+    }
+    .metric-card:hover {
+        border-color: #4d8eff;
+    }
+    .metric-card-label {
+        font-size: 0.7rem;
+        font-weight: 600;
+        color: #94a3b8;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        margin-bottom: 8px;
+    }
+    .metric-card-value {
+        font-size: 1.9em;
+        font-weight: 800;
+        color: #f8fafc;
+        letter-spacing: -0.02em;
+    }
+    .metric-card-value.green { color: #4edea3; }
+    .metric-card-value.blue { color: #4d8eff; }
+    .metric-card-value.amber { color: #fbbf24; }
+    .metric-card-value.red { color: #f87171; }
+
+    /* ===== SECTION HEADERS ===== */
+    .dash-title {
+        font-size: 1.6em;
+        font-weight: 800;
+        color: #f8fafc;
+        letter-spacing: -0.03em;
+        margin-bottom: 2px;
+    }
+    .dash-subtitle {
+        font-size: 0.92rem;
+        font-weight: 400;
+        color: #94a3b8;
+        margin-bottom: 24px;
+    }
+    .section-heading {
+        font-size: 1.05em;
+        font-weight: 700;
+        color: #f8fafc;
+        letter-spacing: -0.01em;
+        margin-bottom: 16px;
+        padding-bottom: 8px;
+        border-bottom: 1px solid #1e3a5f;
+    }
+
+    /* ===== EMPTY STATE ===== */
+    .empty-state {
+        background: linear-gradient(135deg, #1e293b 0%, #171f33 100%);
+        border: 1px solid #1e3a5f;
+        border-radius: 16px;
+        padding: 60px 40px;
+        text-align: center;
+    }
+    .empty-state-title {
+        font-size: 1.1em;
+        font-weight: 700;
+        color: #f8fafc;
+        margin-bottom: 8px;
+    }
+    .empty-state-text {
+        font-size: 0.92em;
+        color: #94a3b8;
+        line-height: 1.6;
+    }
+
+    /* ===== STREAMLIT METRIC OVERRIDE ===== */
     [data-testid="stMetric"] {
-        background-color: #1E222B;
-        border: 1px solid #2D3440;
-        border-radius: 10px;
-        padding: 14px 16px;
+        background: linear-gradient(135deg, #1e293b 0%, #171f33 100%) !important;
+        border: 1px solid #1e3a5f !important;
+        border-radius: 12px !important;
+        padding: 16px 18px !important;
     }
     [data-testid="stMetric"] [data-testid="stMetricValue"],
     [data-testid="stMetric"] [data-testid="stMetricValue"] span,
     [data-testid="stMetric"] [data-testid="stMetricValue"] p {
-        color: #FAFAFA !important;
+        color: #f8fafc !important;
+        font-weight: 700 !important;
     }
     [data-testid="stMetric"] [data-testid="stMetricLabel"],
     [data-testid="stMetric"] [data-testid="stMetricLabel"] span,
     [data-testid="stMetric"] [data-testid="stMetricLabel"] p {
-        color: #A0A4A8 !important;
+        color: #94a3b8 !important;
+        font-size: 0.78rem !important;
+        text-transform: uppercase !important;
+        letter-spacing: 0.06em !important;
     }
     [data-testid="stMetric"] [data-testid="stMetricDelta"],
     [data-testid="stMetric"] [data-testid="stMetricDelta"] span,
     [data-testid="stMetric"] [data-testid="stMetricDelta"] p {
-        color: #FAFAFA !important;
+        color: #4edea3 !important;
     }
 
-    /* PANEL TECNICO */
-    .cv-card {
-        background: #1E222B;
-        border-left: 4px solid #1B3A5C;
-        border-radius: 8px;
-        padding: 16px 20px;
-        margin: 8px 0;
+    /* ===== EXPANDER ===== */
+    .streamlit-expanderHeader {
+        background-color: #1e293b !important;
+        color: #f8fafc !important;
+        border: 1px solid #1e3a5f !important;
+        border-radius: 10px !important;
+        font-weight: 600 !important;
     }
-    .cv-card .cv-label { font-size: 0.85em; color: #A0A4A8; margin-bottom: 4px; }
-    .cv-card .cv-value { font-size: 1.6em; font-weight: bold; color: #FAFAFA; }
-    .cv-card .cv-sub { font-size: 0.8em; color: #555E68; }
+    details[open] summary {
+        border-bottom: 1px solid #1e3a5f !important;
+    }
 
-    /* INFO BOX */
-    .info-box {
-        background-color: #1E222B;
-        border: 1px solid #2D3440;
-        border-radius: 12px;
-        padding: 40px;
-        text-align: center;
+    /* ===== TABS ===== */
+    button[data-baseweb="tab"] {
+        font-family: 'Inter', sans-serif !important;
+        font-weight: 600 !important;
+        font-size: 0.88rem !important;
     }
-    .info-box p {
-        color: #A0A4A8;
-        font-size: 1.05em;
-        line-height: 1.6;
-    }
+
+    /* ===== HIDE DEFAULT STREAMLIT FOOTER ===== */
+    footer {visibility: hidden;}
+    #MainMenu {visibility: hidden;}
 </style>
 """, unsafe_allow_html=True)
 
@@ -331,67 +464,73 @@ st.markdown("""
 # BARRA LATERAL
 # ============================================================
 with st.sidebar:
-    st.markdown('# Prediccion Academica')
-    st.markdown('### Ingrese los datos del estudiante')
-    st.markdown('---')
+    st.markdown(
+        '<div style="text-align:center; margin-bottom: 8px;">'
+        '<span style="font-size:1.6em;">🎓</span>'
+        '</div>'
+        '<h2 style="text-align:center; color:#f8fafc; font-weight:800; '
+        'font-size:1.15em; margin:0 0 2px 0;">PREDICCION ACADEMICA</h2>'
+        '<p style="text-align:center; color:#475569; font-size:0.72rem; '
+        'text-transform:uppercase; letter-spacing:0.1em; margin:0 0 16px 0;">'
+        'Modelo predictivo · Random Forest</p>',
+        unsafe_allow_html=True,
+    )
+    st.markdown('<hr>', unsafe_allow_html=True)
 
     categorias = cargar_categorias()
 
-    if categorias is None:
-        st.error('No se encontro el dataset procesado para reconstruir las categorias.')
-        st.stop()
-
     programas_disponibles = categorias['programas_orden']
     carrera_seleccionada = st.selectbox(
-        'Carrera (Programa)',
+        'Carrera',
         options=programas_disponibles,
         index=0,
-        help='Seleccione la carrera del estudiante.',
     )
 
     estados_disponibles = categorias['estados_orden']
     estado_actual_seleccionado = st.selectbox(
-        'Estado Academico Actual',
+        'Estado Actual',
         options=estados_disponibles,
         index=0,
-        help='Estado actual del estudiante en el automata.',
     )
 
-    st.markdown('---')
+    st.markdown('<hr>', unsafe_allow_html=True)
 
     ppp_valor = st.slider(
-        'Promedio del Periodo (PPP)',
+        'PPP  (Periodo)',
         min_value=0.0, max_value=5.0, value=3.5, step=0.1,
-        help='Promedio obtenido en el periodo mas reciente.',
     )
 
     ppa_valor = st.slider(
-        'Promedio Acumulado (PPA)',
+        'PPA  (Acumulado)',
         min_value=0.0, max_value=5.0, value=3.5, step=0.1,
-        help='Promedio acumulado historico del estudiante.',
     )
 
-    st.markdown('---')
+    st.markdown('<hr>', unsafe_allow_html=True)
+    predecir = st.button('⚡  Predecir Siguiente Estado')
 
-    predecir = st.button('Predecir Siguiente Estado')
-
-    st.markdown('---')
-    st.caption('Backend: AWS Lambda (Random Forest)')
+    st.markdown(
+        '<div style="margin-top:24px; text-align:center;">'
+        '<span style="color:#475569; font-size:0.68rem; text-transform:uppercase; '
+        'letter-spacing:0.08em;">'
+        'AWS Lambda · Random Forest Classifier'
+        '</span></div>',
+        unsafe_allow_html=True,
+    )
 
 
 # ============================================================
-# CONTENIDO PRINCIPAL
+# HEADER PRINCIPAL
 # ============================================================
-st.markdown('<p class="section-title">Prediccion de Trayectorias Academicas</p>', unsafe_allow_html=True)
 st.markdown(
-    '<p class="section-subtitle">'
-    'Modelo predictivo para estimar el siguiente estado academico '
-    'basado en promedio, programa y estado actual del automata.'
-    '</p>',
+    '<div class="dash-title">Prediccion de Trayectorias Academicas</div>'
+    '<div class="dash-subtitle">'
+    'Estimacion del siguiente estado academico basado en promedio, '
+    'programa y estado actual del automata.'
+    '</div>',
     unsafe_allow_html=True,
 )
 
-tab_prediccion, tab_tecnico = st.tabs(['Prediccion', 'Panel Tecnico'])
+tab_prediccion, tab_tecnico = st.tabs(['🔮  Predicción', '🛠️  Panel Técnico'])
 
 
 # ============================================================
@@ -403,27 +542,26 @@ with tab_prediccion:
         mapa_est = categorias['estados']
 
         if carrera_seleccionada not in mapa_prog:
-            st.error(f"Error: La carrera '{carrera_seleccionada}' no esta registrada.")
+            st.error(f"Carrera no registrada: '{carrera_seleccionada}'")
             st.stop()
         if estado_actual_seleccionado not in mapa_est:
-            st.error(f"Error: El estado '{estado_actual_seleccionado}' no esta registrado.")
+            st.error(f"Estado no registrado: '{estado_actual_seleccionado}'")
             st.stop()
-
-        valor_estado_final = int(mapa_est[estado_actual_seleccionado])
-        valor_programa_final = int(mapa_prog[carrera_seleccionada])
 
         payload = {
             'PPP': float(ppp_valor),
             'PPA': float(ppa_valor),
-            'ESTADO_ACTUAL_ENCODED': valor_estado_final,
-            'PROGRAMA_ENCODED': valor_programa_final,
+            'ESTADO_ACTUAL_ENCODED': int(mapa_est[estado_actual_seleccionado]),
+            'PROGRAMA_ENCODED': int(mapa_prog[carrera_seleccionada]),
         }
-
-        headers = {'Content-Type': 'application/json'}
 
         try:
             with st.spinner('Consultando modelo en la nube...'):
-                respuesta = requests.post(API_URL, json=payload, headers=headers, timeout=API_TIMEOUT)
+                respuesta = requests.post(
+                    API_URL, json=payload,
+                    headers={'Content-Type': 'application/json'},
+                    timeout=API_TIMEOUT,
+                )
                 respuesta.raise_for_status()
                 respuesta = respuesta.json()
 
@@ -434,89 +572,89 @@ with tab_prediccion:
                 certeza = respuesta['certeza']
                 probabilidades = respuesta['probabilidades']
 
-                # Banner de resultado
-                prediccion_lower = prediccion.lower()
-                if 'regular' in prediccion_lower or 'primera' in prediccion_lower:
-                    clase_banner = 'exito'
-                elif 'exclusi' in prediccion_lower:
-                    clase_banner = 'peligro'
-                elif 'pat' in prediccion_lower:
-                    clase_banner = 'peligro'
-                elif 'pap' in prediccion_lower:
-                    clase_banner = 'advertencia'
-                else:
-                    clase_banner = 'advertencia'
+                color_accent = COLORES_ESTADO.get(prediccion, ACCENT_BLUE)
 
-                st.markdown(
-                    f'<div class="banner-resultado banner-{clase_banner}">'
-                    f'Prediccion: {prediccion} &mdash; {certeza:.1%} certeza'
-                    f'</div>',
-                    unsafe_allow_html=True,
-                )
+                # --- HERO + CONFIDENCE ---
+                col_hero, col_conf = st.columns([3, 2])
 
-                # Grafico de barras
-                df_prob = pd.DataFrame({
-                    'Estado': list(probabilidades.keys()),
-                    'Probabilidad': list(probabilidades.values()),
-                }).sort_values('Probabilidad', ascending=True)
-
-                df_prob['Color'] = df_prob['Estado'].map(
-                    lambda e: COLORES_ESTADO.get(e, COLOR_SECUNDARIO)
-                )
-
-                fig = go.Figure()
-                fig.add_trace(go.Bar(
-                    y=df_prob['Estado'],
-                    x=df_prob['Probabilidad'],
-                    orientation='h',
-                    marker_color=df_prob['Color'],
-                    text=[f'{p:.1%}' for p in df_prob['Probabilidad']],
-                    textposition='outside',
-                    textfont=dict(size=13, color=TEXTO_CLARO, family='Inter'),
-                ))
-                fig.update_layout(
-                    xaxis_title='Probabilidad',
-                    yaxis_title='',
-                    xaxis=dict(
-                        tickformat='.0%', range=[0, 1],
-                        color=TEXTO_SECUNDARIO,
-                        gridcolor='#2D3440',
-                        zerolinecolor='#2D3440',
-                    ),
-                    yaxis=dict(color=TEXTO_CLARO, tickfont=dict(size=12)),
-                    title=dict(
-                        text='Distribucion de Probabilidades por Estado',
-                        font=dict(size=15, color=TEXTO_CLARO, family='Inter'),
-                        x=0.0, xanchor='left',
-                    ),
-                    height=max(350, len(probabilidades) * 55),
-                    margin=dict(l=10, r=30, t=50, b=40),
-                    paper_bgcolor='rgba(0,0,0,0)',
-                    plot_bgcolor=FONDO_SUPERFICIE,
-                    font=dict(family='Inter', color=TEXTO_CLARO),
-                )
-                st.plotly_chart(fig, use_container_width=True)
-
-                # Top-3
-                st.markdown(
-                    '<p class="section-title">Top 3 Estados Mas Probables</p>',
-                    unsafe_allow_html=True,
-                )
-
-                top3 = df_prob.nlargest(3, 'Probabilidad')
-                cols_top3 = st.columns(3)
-
-                for i, (_, fila) in enumerate(top3.iterrows()):
-                    rank_class = f'top3-rank top3-rank-{i+1}'
-                    cols_top3[i].markdown(
-                        f'<div class="top3-card">'
-                        f'  <div class="{rank_class}">#{i+1}</div>'
-                        f'  <div class="top3-nombre">{fila["Estado"]}</div>'
-                        f'  <div class="top3-porcentaje">{fila["Probabilidad"]:.1%}</div>'
-                        f'  <div class="top3-label">Probabilidad</div>'
+                with col_hero:
+                    st.markdown(
+                        f'<div class="hero-card">'
+                        f'  <div class="hero-card-label">Estado Predicho</div>'
+                        f'  <div class="hero-card-value" style="color:{color_accent};">'
+                        f'{prediccion.upper()}</div>'
+                        f'  <div class="hero-card-sub">Siguiente estado en el automata</div>'
                         f'</div>',
                         unsafe_allow_html=True,
                     )
+
+                with col_conf:
+                    pct_bar = int(certeza * 100)
+                    st.markdown(
+                        f'<div class="confidence-card">'
+                        f'  <div class="confidence-label">Confianza del Modelo</div>'
+                        f'  <div class="confidence-value">{certeza:.1%}</div>'
+                        f'  <div class="confidence-bar-bg">'
+                        f'    <div class="confidence-bar-fill" style="width:{pct_bar}%;"></div>'
+                        f'  </div>'
+                        f'</div>',
+                        unsafe_allow_html=True,
+                    )
+
+                st.markdown('<div style="height:28px;"></div>', unsafe_allow_html=True)
+
+                # --- DISTRIBUCION DE PROBABILIDADES ---
+                st.markdown(
+                    '<div class="section-heading">Distribucion de Probabilidades</div>',
+                    unsafe_allow_html=True,
+                )
+
+                sorted_probs = sorted(probabilidades.items(), key=lambda x: x[1], reverse=True)
+
+                for estado, prob in sorted_probs:
+                    color_bar = COLORES_ESTADO.get(estado, ACCENT_BLUE)
+                    pct = int(prob * 100)
+                    st.markdown(
+                        f'<div class="prob-item">'
+                        f'  <div class="prob-label">{estado}</div>'
+                        f'  <div class="prob-bar-track">'
+                        f'    <div class="prob-bar-fill" style="width:{pct}%; background:{color_bar};"></div>'
+                        f'  </div>'
+                        f'  <div class="prob-pct">{prob:.1%}</div>'
+                        f'</div>',
+                        unsafe_allow_html=True,
+                    )
+
+                st.markdown('<div style="height:20px;"></div>', unsafe_allow_html=True)
+
+                # --- TOP 3 ---
+                st.markdown(
+                    '<div class="section-heading">Top 3 Estados Mas Probables</div>',
+                    unsafe_allow_html=True,
+                )
+
+                top3 = sorted_probs[:3]
+                medals = ['🥇', '🥈', '🥉']
+                medal_colors = [ACCENT_AMBER, '#c0c0c0', '#cd7f32']
+
+                cols_top3 = st.columns(3)
+                for i, (estado, prob) in enumerate(top3):
+                    with cols_top3[i]:
+                        st.markdown(
+                            f'<div style="background:linear-gradient(135deg,#1e293b,#171f33); '
+                            f'border:1px solid #1e3a5f; border-radius:14px; padding:24px 16px; '
+                            f'text-align:center; box-shadow:0 4px 20px rgba(0,0,0,0.25);">'
+                            f'  <div style="font-size:2em; margin-bottom:6px;">{medals[i]}</div>'
+                            f'  <div style="font-size:0.85rem; font-weight:600; color:#f8fafc; '
+                            f'margin-bottom:10px; line-height:1.3;">{estado}</div>'
+                            f'  <div style="font-size:1.7em; font-weight:800; '
+                            f'color:{medal_colors[i]};">{prob:.1%}</div>'
+                            f'  <div style="font-size:0.65rem; font-weight:500; color:#475569; '
+                            f'text-transform:uppercase; letter-spacing:0.08em; margin-top:4px;">'
+                            f'Probabilidad</div>'
+                            f'</div>',
+                            unsafe_allow_html=True,
+                        )
 
         except requests.exceptions.ConnectionError:
             st.error('No se pudo conectar con la API. Verifique su conexion a internet.')
@@ -529,116 +667,111 @@ with tab_prediccion:
 
     else:
         st.markdown(
-            '<div class="info-box">'
-            '<p>Configure los datos del estudiante en la barra lateral '
-            'y haga clic en <strong>Predecir</strong> para consultar el modelo en la nube.</p>'
+            '<div class="empty-state">'
+            '  <div style="font-size:2.5em; margin-bottom:12px;">🔮</div>'
+            '  <div class="empty-state-title">Configure los datos del estudiante</div>'
+            '  <div class="empty-state-text">'
+            '  Seleccione la carrera, estado actual y promedios en la barra lateral.<br>'
+            '  Luego haga clic en <strong>Predecir</strong> para consultar el modelo.</div>'
             '</div>',
             unsafe_allow_html=True,
         )
 
         metricas = cargar_metricas()
         if metricas:
-            st.markdown('---')
+            st.markdown('<div style="height:28px;"></div>', unsafe_allow_html=True)
             st.markdown(
-                '<p class="section-title">Rendimiento del Modelo</p>',
+                '<div class="section-heading">Rendimiento del Modelo</div>',
                 unsafe_allow_html=True,
             )
             val = metricas.get('validacion', metricas.get('resultado', {}))
             acc = val.get('accuracy_test', val.get('accuracy', 0))
-            col_a, col_b, col_c, col_d = st.columns(4)
-            col_a.metric('Accuracy Test', f'{acc:.1%}')
-            col_b.metric('Precision (macro)', f'{val.get("precision_macro", 0):.1%}')
-            col_c.metric('Recall (macro)', f'{val.get("recall_macro", 0):.1%}')
-            col_d.metric('Muestras Test', f'{val.get("n_muestras_test", 0):,}')
+            c1, c2, c3, c4 = st.columns(4)
+            c1.metric('Accuracy Test', f'{acc:.1%}')
+            c2.metric('Precision (macro)', f'{val.get("precision_macro", 0):.1%}')
+            c3.metric('Recall (macro)', f'{val.get("recall_macro", 0):.1%}')
+            c4.metric('Muestras Test', f'{val.get("n_muestras_test", 0):,}')
 
 
 # ============================================================
 # PESTANA 2: PANEL TECNICO
 # ============================================================
 with tab_tecnico:
-    st.markdown(
-        '<p class="section-title">Panel Tecnico del Modelo</p>',
-        unsafe_allow_html=True,
-    )
-    st.markdown(
-        '<p class="section-subtitle">'
-        'Metricas, importancias de variables y graficos de evaluacion del modelo entrenado.'
-        '</p>',
-        unsafe_allow_html=True,
-    )
-
     metricas = cargar_metricas()
 
     if metricas:
         val = metricas.get('validacion', metricas.get('resultado', {}))
+        res = metricas.get('resultado', val)
 
+        # --- 4 TARJETAS DE METRICAS ---
         st.markdown(
-            '<p class="section-title" style="font-size:1.1em;">Validacion Cientifica</p>',
+            '<div class="section-heading">Metricas de Rendimiento</div>',
             unsafe_allow_html=True,
         )
 
-        cv_cols = st.columns(4)
-
-        acc_train = val.get('accuracy_train', 0)
-        with cv_cols[0]:
-            st.metric('Accuracy Entrenamiento', f'{acc_train:.2%}')
+        m1, m2, m3, m4 = st.columns(4)
 
         acc_test = val.get('accuracy_test', val.get('accuracy', 0))
-        with cv_cols[1]:
-            st.metric('Accuracy Prueba', f'{acc_test:.2%}')
-
-        brecha = val.get('brecha_overfitting', 0)
-        with cv_cols[2]:
-            if brecha < 0.02:
-                delta_text = 'optimo'
-                delta_color = 'normal'
-            elif brecha < 0.05:
-                delta_text = 'aceptable'
-                delta_color = 'off'
-            else:
-                delta_text = 'alto'
-                delta_color = 'inverse'
-            st.metric('Brecha Overfitting', f'{brecha:.4f}', delta=delta_text, delta_color=delta_color)
-
-        cv_mean = val.get('cross_val_mean', 0)
-        cv_std = val.get('cross_val_std', 0)
-        with cv_cols[3]:
-            st.metric('CV 5-Fold Media +/- Std', f'{cv_mean:.2%} +/- {cv_std:.4f}')
-
-        cv_scores = val.get('cross_val_scores', [])
-        if cv_scores:
-            st.markdown('**Scores por pliegue:**')
-            fold_cols = st.columns(len(cv_scores))
-            for i, score in enumerate(cv_scores):
-                with fold_cols[i]:
-                    st.metric(f'Pliegue {i+1}', f'{score:.4f}')
-
-        st.markdown('---')
-
-        st.markdown(
-            '<p class="section-title" style="font-size:1.1em;">Metricas de Evaluacion</p>',
-            unsafe_allow_html=True,
-        )
-        res = metricas.get('resultado', val)
-        col1, col2, col3 = st.columns(3)
-        col1.metric('Precision (macro)', f'{res.get("precision_macro", 0):.1%}')
-        col2.metric('Recall (macro)', f'{res.get("recall_macro", 0):.1%}')
-        n_total = res.get('n_muestras_totales', res.get('n_muestras_train', 0) + res.get('n_muestras_test', 0))
-        n_train = res.get('n_muestras_train', 0)
+        prec = res.get('precision_macro', 0)
+        rec = res.get('recall_macro', 0)
         n_test = res.get('n_muestras_test', 0)
-        col3.metric('Total Muestras', f'{n_total:,}')
 
-        col4, col5, col6 = st.columns(3)
-        col4.metric('Muestras Entrenamiento', f'{n_train:,}')
-        col5.metric('Muestras Prueba', f'{n_test:,}')
-        col6.metric('Features', res.get('n_features', 0))
+        with m1:
+            st.markdown(
+                f'<div class="metric-card">'
+                f'  <div class="metric-card-label">Accuracy Test</div>'
+                f'  <div class="metric-card-value green">{acc_test:.1%}</div>'
+                f'</div>',
+                unsafe_allow_html=True,
+            )
+        with m2:
+            st.markdown(
+                f'<div class="metric-card">'
+                f'  <div class="metric-card-label">Precision Macro</div>'
+                f'  <div class="metric-card-value blue">{prec:.1%}</div>'
+                f'</div>',
+                unsafe_allow_html=True,
+            )
+        with m3:
+            st.markdown(
+                f'<div class="metric-card">'
+                f'  <div class="metric-card-label">Recall Macro</div>'
+                f'  <div class="metric-card-value amber">{rec:.1%}</div>'
+                f'</div>',
+                unsafe_allow_html=True,
+            )
+        with m4:
+            st.markdown(
+                f'<div class="metric-card">'
+                f'  <div class="metric-card-label">Muestras Test</div>'
+                f'  <div class="metric-card-value">{n_test:,}</div>'
+                f'</div>',
+                unsafe_allow_html=True,
+            )
 
-        st.markdown('---')
+        st.markdown('<div style="height:24px;"></div>', unsafe_allow_html=True)
 
-        with st.expander('Hiperparametros del Modelo', expanded=False):
-            st.json(metricas.get('hiperparametros', {}))
+        # --- VALIDACION CRUZADA ---
+        with st.expander('Validación Cruzada (5-Fold)', expanded=False):
+            cv_mean = val.get('cross_val_mean', 0)
+            cv_std = val.get('cross_val_std', 0)
+            st.markdown(
+                f'<div style="color:#f8fafc; font-size:0.92rem; margin-bottom:12px;">'
+                f'<strong>Media:</strong> {cv_mean:.2%} &nbsp;|&nbsp; '
+                f'<strong>Std:</strong> ±{cv_std:.4f}</div>',
+                unsafe_allow_html=True,
+            )
+            cv_scores = val.get('cross_val_scores', [])
+            if cv_scores:
+                fold_cols = st.columns(len(cv_scores))
+                for i, score in enumerate(cv_scores):
+                    with fold_cols[i]:
+                        st.metric(f'Fold {i+1}', f'{score:.4f}')
 
-        with st.expander('Importancia de Variables', expanded=True):
+        st.markdown('<div style="height:8px;"></div>', unsafe_allow_html=True)
+
+        # --- IMPORTANCIA DE VARIABLES ---
+        with st.expander('Importancia de Variables (Feature Importance)', expanded=True):
             importancias = metricas.get('importancias_features', {})
             if importancias:
                 df_imp = pd.DataFrame({
@@ -651,32 +784,29 @@ with tab_tecnico:
                     y=df_imp['Feature'],
                     x=df_imp['Importancia'],
                     orientation='h',
-                    marker_color=COLOR_ACCENTO,
+                    marker_color=ACCENT_BLUE,
                     text=[f'{v:.4f}' for v in df_imp['Importancia']],
                     textposition='outside',
-                    textfont=dict(size=11, color=TEXTO_CLARO, family='Inter'),
+                    textfont=dict(size=12, color=TEXTO_PRIMARY, family='Inter'),
                 ))
                 fig_imp.update_layout(
-                    title=dict(
-                        text='Importancia de Variables (Feature Importance)',
-                        font=dict(size=14, color=TEXTO_CLARO, family='Inter'),
-                        x=0.0, xanchor='left',
-                    ),
                     xaxis=dict(
-                        color=TEXTO_SECUNDARIO,
-                        gridcolor='#2D3440',
-                        zerolinecolor='#2D3440',
+                        color=TEXTO_SECONDARY,
+                        gridcolor='#1e3a5f',
+                        zerolinecolor='#1e3a5f',
+                        range=[0, max(importancias.values()) * 1.25],
                     ),
-                    yaxis=dict(color=TEXTO_CLARO),
-                    height=320,
-                    margin=dict(l=10, r=30, t=50, b=30),
+                    yaxis=dict(color=TEXTO_PRIMARY, tickfont=dict(size=12)),
+                    height=300,
+                    margin=dict(l=10, r=30, t=10, b=30),
                     paper_bgcolor='rgba(0,0,0,0)',
-                    plot_bgcolor=FONDO_SUPERFICIE,
-                    font=dict(family='Inter', color=TEXTO_CLARO),
+                    plot_bgcolor=BG_GENERAL,
+                    font=dict(family='Inter', color=TEXTO_PRIMARY),
                 )
                 st.plotly_chart(fig_imp, use_container_width=True)
 
-        with st.expander('Matriz de Confusion', expanded=False):
+        # --- MATRIZ DE CONFUSION ---
+        with st.expander('Matriz de Confusión', expanded=False):
             cm_data = metricas.get('matriz_confusion', {})
             if cm_data:
                 cm = cm_data['valores_absolutos']
@@ -685,33 +815,49 @@ with tab_tecnico:
 
                 fig_cm = px.imshow(
                     df_cm, text_auto=True,
-                    color_continuous_scale='Blues', aspect='auto',
+                    color_continuous_scale=[
+                        [0, BG_GENERAL],
+                        [0.5, '#1e3a5f'],
+                        [1, ACCENT_BLUE],
+                    ],
+                    aspect='auto',
                     labels=dict(x='Prediccion', y='Real', color='Frecuencia'),
                 )
                 fig_cm.update_layout(
-                    height=max(400, len(etiquetas) * 60),
-                    margin=dict(l=0, r=0, t=30, b=0),
+                    height=max(380, len(etiquetas) * 55),
+                    margin=dict(l=10, r=10, t=30, b=10),
                     paper_bgcolor='rgba(0,0,0,0)',
-                    plot_bgcolor=FONDO_SUPERFICIE,
-                    font=dict(family='Inter', color=TEXTO_CLARO),
+                    plot_bgcolor=BG_GENERAL,
+                    font=dict(family='Inter', color=TEXTO_PRIMARY, size=11),
+                    coloraxis_colorbar=dict(
+                        tickfont=dict(color=TEXTO_SECONDARY),
+                        title_font=dict(color=TEXTO_SECONDARY),
+                    ),
                 )
-                fig_cm.update_xaxes(color=TEXTO_CLARO, tickfont=dict(color=TEXTO_CLARO))
-                fig_cm.update_yaxes(color=TEXTO_CLARO, tickfont=dict(color=TEXTO_CLARO))
+                fig_cm.update_xaxes(color=TEXTO_PRIMARY, tickfont=dict(color=TEXTO_PRIMARY, size=10))
+                fig_cm.update_yaxes(color=TEXTO_PRIMARY, tickfont=dict(color=TEXTO_PRIMARY, size=10))
                 st.plotly_chart(fig_cm, use_container_width=True)
 
-        with st.expander('Reporte de Clasificacion Completo', expanded=False):
-            st.code(metricas.get('reporte_clasificacion', ''), language=None)
+        # --- REPORTE DE CLASIFICACION ---
+        with st.expander('Reporte de Clasificación Completo', expanded=False):
+            reporte = metricas.get('reporte_clasificacion', '')
+            if reporte:
+                st.code(reporte, language=None)
 
-        st.markdown('---')
+        # --- HIPERPARAMETROS ---
+        with st.expander('Hiperparámetros del Modelo', expanded=False):
+            st.json(metricas.get('hiperparametros', {}))
 
-        st.markdown(
-            '<p class="section-title" style="font-size:1.1em;">Graficos de Evaluacion</p>',
-            unsafe_allow_html=True,
-        )
+        # --- GRAFICOS DE EVALUACION ---
         directorio_figuras = Path('reports/figures')
         if directorio_figuras.exists():
             pngs = sorted(directorio_figuras.glob('*.png'))
             if pngs:
+                st.markdown('<div style="height:16px;"></div>', unsafe_allow_html=True)
+                st.markdown(
+                    '<div class="section-heading">Graficos de Evaluacion</div>',
+                    unsafe_allow_html=True,
+                )
                 cols_graficos = st.columns(2)
                 for i, png in enumerate(pngs):
                     with cols_graficos[i % 2]:
@@ -720,10 +866,6 @@ with tab_tecnico:
                             caption=png.stem.replace('_', ' ').title(),
                             use_container_width=True,
                         )
-            else:
-                st.info('No se encontraron graficos en reports/figures/.')
-        else:
-            st.info('Directorio reports/figures/ no encontrado.')
     else:
         st.warning(
             'No se encontro metricas_modelo.json. '
