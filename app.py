@@ -217,14 +217,21 @@ st.markdown("""
         border: none !important;
         box-shadow: 0 4px 20px rgba(77, 142, 255, 0.3) !important;
         transition: all 0.3s ease !important;
+        -webkit-text-fill-color: #ffffff !important;
     }
     .stButton > button:hover {
         background: linear-gradient(135deg, #6ba1ff 0%, #4d8eff 100%) !important;
         box-shadow: 0 6px 28px rgba(77, 142, 255, 0.45) !important;
         transform: translateY(-1px) !important;
+        -webkit-text-fill-color: #ffffff !important;
     }
     .stButton > button:active {
         transform: translateY(0) !important;
+        -webkit-text-fill-color: #ffffff !important;
+    }
+    .stButton > button:focus-visible {
+        color: #ffffff !important;
+        -webkit-text-fill-color: #ffffff !important;
     }
 
     /* ===== HERO CARD — PREDICCION ===== */
@@ -466,8 +473,6 @@ st.markdown("""
 with st.sidebar:
     st.markdown(
         '<div style="text-align:center; margin-bottom: 8px;">'
-        '<span style="font-size:1.6em;">🎓</span>'
-        '</div>'
         '<h2 style="text-align:center; color:#f8fafc; font-weight:800; '
         'font-size:1.15em; margin:0 0 2px 0;">PREDICCION ACADEMICA</h2>'
         '<p style="text-align:center; color:#475569; font-size:0.72rem; '
@@ -506,7 +511,7 @@ with st.sidebar:
     )
 
     st.markdown('<hr>', unsafe_allow_html=True)
-    predecir = st.button('⚡  Predecir Siguiente Estado')
+    predecir = st.button('Predecir Siguiente Estado')
 
     st.markdown(
         '<div style="margin-top:24px; text-align:center;">'
@@ -530,7 +535,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-tab_prediccion, tab_tecnico = st.tabs(['🔮  Predicción', '🛠️  Panel Técnico'])
+tab_prediccion, tab_tecnico = st.tabs(['Predicción', 'Panel Técnico'])
 
 
 # ============================================================
@@ -634,7 +639,7 @@ with tab_prediccion:
                 )
 
                 top3 = sorted_probs[:3]
-                medals = ['🥇', '🥈', '🥉']
+                medals = ['#1', '#2', '#3']
                 medal_colors = [ACCENT_AMBER, '#c0c0c0', '#cd7f32']
 
                 cols_top3 = st.columns(3)
@@ -668,7 +673,6 @@ with tab_prediccion:
     else:
         st.markdown(
             '<div class="empty-state">'
-            '  <div style="font-size:2.5em; margin-bottom:12px;">🔮</div>'
             '  <div class="empty-state-title">Configure los datos del estudiante</div>'
             '  <div class="empty-state-text">'
             '  Seleccione la carrera, estado actual y promedios en la barra lateral.<br>'
